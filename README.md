@@ -49,3 +49,8 @@ PT, EN, ES, FR, DE, IT (interface e reconhecimento de voz).
 - `/enviar?room=CÓDIGO`: página para colar/atualizar o texto e enviar direto ao app (mesmo título = atualiza ao vivo). Se o app estiver fechado, o texto fica na fila e chega quando ele abrir.
 - API: `POST /api/push` com `{room, title, text, update}`.
 - No app Android, informe o endereço do servidor em Configurações → Servidor.
+
+## Biblioteca sincronizada (site + app)
+- Em **📚 Biblioteca → ☁** cada aparelho tem um *código de sincronização*. Use o **mesmo código** no site e no app: as apresentações são compartilhadas (criar, editar, apagar). O app sincroniza ao abrir, a cada minuto e quando o servidor avisa que houve mudança.
+- `/enviar?code=CÓDIGO` cria/atualiza uma apresentação direto na biblioteca online (mesmo título = atualiza).
+- **Durabilidade:** por padrão o servidor guarda em arquivos (`data/`), que no Render grátis se perdem a cada reinício — os aparelhos reenviam o que tiverem. Para guardar de forma durável e grátis, crie um banco Redis no [Upstash](https://upstash.com) e defina no Render as variáveis `UPSTASH_REDIS_REST_URL` e `UPSTASH_REDIS_REST_TOKEN`.

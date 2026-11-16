@@ -14,8 +14,8 @@ button{font:inherit;padding:.9rem 1.2rem;border-radius:12px;border:1px solid #25
 input[type=checkbox]{width:20px;height:20px}
 </style></head><body>
 <h1>🎬 TELEPROMPTER UNIÃO — enviar texto</h1>
-<p class="s">O texto vai direto para o app. Se já existir uma apresentação com o mesmo título, ela é <b>atualizada</b> na hora.</p>
-<label>Código do app</label><input type="text" id="room" maxlength="16" style="text-transform:uppercase" placeholder="ex.: K7M2QX">
+<p class="s">O texto fica salvo na sua biblioteca online e aparece no app (ao abrir ou na hora, se estiver aberto). Com o mesmo título, a apresentação é <b>atualizada</b>.</p>
+<label>Código de sincronização (o mesmo do app)</label><input type="text" id="room" maxlength="16" style="text-transform:uppercase" placeholder="ex.: K7M2QX">
 <label>Título da apresentação</label><input type="text" id="title" placeholder="Ex.: Abertura do evento">
 <label>Texto</label><textarea id="text" placeholder="Cole ou digite o texto aqui…"></textarea>
 <div class="row"><label style="display:flex;gap:8px;align-items:center;margin:0;color:#eee"><input type="checkbox" id="upd" checked> Atualizar se já existir o mesmo título</label></div>
@@ -23,19 +23,19 @@ input[type=checkbox]{width:20px;height:20px}
 <div id="st"></div>
 <script>
 const $=id=>document.getElementById(id), q=new URLSearchParams(location.search);
-$('room').value=(q.get('room')||localStorage.getItem('tp-send-room')||'').toUpperCase();
+$('room').value=(q.get('code')||q.get('room')||localStorage.getItem('tp-send-room')||'').toUpperCase();
 $('title').value=q.get('title')||localStorage.getItem('tp-send-title')||'';
 $('send').onclick=async()=>{
   const room=$('room').value.trim().toUpperCase(), st=$('st'); st.className='';
-  if(!/^[A-Z0-9]{4,16}$/.test(room)){ st.className='err'; st.textContent='Informe o código do app (aparece em “Controle remoto”).'; return; }
+  if(!/^[A-Z0-9]{4,16}$/.test(room)){ st.className='err'; st.textContent='Informe o código de sincronização (aparece em Biblioteca → ☁).'; return; }
   if(!$('text').value.trim()){ st.className='err'; st.textContent='Escreva ou cole o texto.'; return; }
   localStorage.setItem('tp-send-room',room); localStorage.setItem('tp-send-title',$('title').value);
   $('send').disabled=true;
   try{
-    const r=await fetch('/api/push',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({room,title:$('title').value,text:$('text').value,update:$('upd').checked})});
+    const r=await fetch('/api/lib/send',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:room,title:$('title').value,text:$('text').value,update:$('upd').checked})});
     const d=await r.json(); if(!r.ok) throw new Error(d.error||r.status);
-    st.className=d.delivered?'ok':'wait';
-    st.textContent=d.delivered?'✅ Entregue ao app agora.':'⏳ Guardado. Chega ao app assim que ele for aberto.';
+    st.className='ok';
+    st.textContent=(d.updated?'🔄 Apresentação atualizada. ':'✅ Apresentação criada. ')+(d.delivered?'O app recebeu agora.':'O app recebe ao ser aberto (ou ao tocar em Sincronizar).');
   }catch(e){ st.className='err'; st.textContent='Erro: '+e.message; }
   $('send').disabled=false;
 };

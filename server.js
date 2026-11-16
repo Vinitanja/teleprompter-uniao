@@ -62,6 +62,46 @@ function deliverPush(room, push) {
   return n;
 }
 
+// ---------- Biblioteca sincronizada por código (web + app) ----------
+// Armazenamento: arquivos em data/ (efêmero no Render grátis) ou, se UPSTASH_REDIS_REST_URL/TOKEN estiverem definidos, Redis Upstash (durável e grátis).
+// Os aparelhos também guardam cópia local e reenviam o que faltar, então um reinício do servidor não perde textos que ainda estejam em algum aparelho.
+const syncRooms = new Map(); // código -> Set<ws>
+const store = (() => {
+  const U = process.env.UPSTASH_REDIS_REST_URL, T = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (U && T) {
+    const call = async cmd => {
+      const r = await fetch(U, { method: 'POST', headers: { Authorization: 'Bearer ' + T, 'Content-Type': 'application/json' }, body: JSON.stringify(cmd) });
+      const j = await r.json(); if (j.error) throw new Error(j.error); return j.result;
+    };
+    return {
+      kind: 'upstash',
+      async meta(code) { const a = (await call(['HGETALL', 'tpm:' + code])) || []; const o = {}; for (let i = 0; i < a.length; i += 2) o[a[i]] = JSON.parse(a[i + 1]); return o; },
+      async texts(code, ids) { if (!ids.length) return {}; const v = await call(['HMGET', 'tpt:' + code, ...ids]); const o = {}; ids.forEach((id, i) => o[id] = v[i] || ''); return o; },
+      async put(code, items) {
+        if (!items.length) return;
+        await call(['HSET', 'tpm:' + code, ...items.flatMap(i => [i.id, JSON.stringify({ title: i.title, updated: i.updated, deleted: !!i.deleted, size: (i.text || '').length })])]);
+        const withText = items.filter(i => !i.deleted); if (withText.length) await call(['HSET', 'tpt:' + code, ...withText.flatMap(i => [i.id, i.text || ''])]);
+        const gone = items.filter(i => i.deleted); if (gone.length) await call(['HDEL', 'tpt:' + code, ...gone.map(i => i.id)]);
+      },
+    };
+  }
+  const cache = new Map(); const file = c => path.join(DATA, 'lib-' + c + '.json');
+  const load = c => { if (!cache.has(c)) { let d = { meta: {}, texts: {} }; try { d = JSON.parse(fs.readFileSync(file(c), 'utf8')); } catch {} cache.set(c, d); } return cache.get(c); };
+  return {
+    kind: 'file',
+    async meta(code) { return load(code).meta; },
+    async texts(code, ids) { const d = load(code), o = {}; ids.forEach(id => o[id] = d.texts[id] || ''); return o; },
+    async put(code, items) {
+      const d = load(code);
+      for (const i of items) { d.meta[i.id] = { title: i.title, updated: i.updated, deleted: !!i.deleted, size: (i.text || '').length }; if (i.deleted) delete d.texts[i.id]; else d.texts[i.id] = i.text || ''; }
+      fs.writeFileSync(file(code), JSON.stringify(d));
+    },
+  };
+})();
+const notifySync = code => { for (const c of syncRooms.get(code) || []) if (c.readyState === 1) c.send(JSON.stringify({ type: 'libChanged' })); };
+const okCode = c => /^[A-Z0-9]{4,16}$/.test(c);
+const cleanItem = i => ({ id: String(i.id).slice(0, 64), title: String(i.title || '').slice(0, 200), text: String(i.text || ''), updated: +i.updated || Date.now(), deleted: !!i.deleted });
+
 // ---------- IMAP (opcional) ----------
 async function pollImap() {
   const { IMAP_HOST, IMAP_USER, IMAP_PASS } = process.env;
@@ -147,6 +187,34 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'GET') return json(res, 200, inbox[i]);
       if (req.method === 'DELETE') { inbox.splice(i, 1); saveInbox(); return json(res, 200, { ok: true }); }
     }
+    if (url.pathname.startsWith('/api/lib/') && req.method === 'POST') {
+      const f = JSON.parse(await readBody(req) || '{}'); const code = String(f.code || '').toUpperCase();
+      if (!okCode(code)) return json(res, 400, { error: 'código inválido' });
+      const srv = await store.meta(code);
+      if (url.pathname === '/api/lib/sync') {            // compara listas e devolve o que cada lado precisa
+        const need = [], haveIds = [], seen = new Set();
+        for (const c of f.items || []) { seen.add(c.id); const sv = srv[c.id]; if (!sv || c.updated > sv.updated) need.push(c.id); else if (sv.updated > c.updated) haveIds.push(c.id); }
+        for (const id of Object.keys(srv)) if (!seen.has(id)) haveIds.push(id);
+        const texts = await store.texts(code, haveIds.filter(id => !srv[id].deleted));
+        return json(res, 200, { need, have: haveIds.map(id => ({ id, title: srv[id].title, updated: srv[id].updated, deleted: !!srv[id].deleted, text: texts[id] || '' })) });
+      }
+      if (url.pathname === '/api/lib/put') {             // aparelho envia itens novos/alterados/apagados
+        const items = (f.items || []).map(cleanItem).filter(i => !srv[i.id] || i.updated > srv[i.id].updated);
+        await store.put(code, items); if (items.length) notifySync(code);
+        return json(res, 200, { ok: true, accepted: items.length });
+      }
+      if (url.pathname === '/api/lib/send') {            // página /enviar: cria ou atualiza (mesmo título) direto na biblioteca
+        const text = String(f.text || ''); if (!text.trim()) return json(res, 400, { error: 'texto vazio' });
+        const title = String(f.title || '').trim().slice(0, 200) || 'Sem título';
+        let id = null;
+        if (f.update !== false) { let best = 0; for (const [k, v] of Object.entries(srv)) if (!v.deleted && v.title === title && v.updated >= best) { id = k; best = v.updated; } }
+        const existed = !!(id && srv[id]);
+        id = id || crypto.randomUUID();
+        await store.put(code, [{ id, title, text, updated: Date.now() }]); notifySync(code);
+        let n = 0; for (const c of syncRooms.get(code) || []) if (c.readyState === 1) n++;
+        return json(res, 200, { ok: true, id, delivered: n > 0, updated: existed });
+      }
+    }
     if (url.pathname === '/api/push' && req.method === 'POST') {
       const f = JSON.parse(await readBody(req) || '{}');
       const room = String(f.room || '').toUpperCase();
@@ -191,6 +259,8 @@ wss.on('connection', (ws, req) => {
   const room = (u.searchParams.get('room') || '').toUpperCase();
   if (!/^[A-Z0-9]{4,16}$/.test(room)) return ws.close(1008, 'sala inválida');
   ws.role = u.searchParams.get('role') === 'prompter' ? 'prompter' : 'controller';
+  const syncCode = (u.searchParams.get('sync') || '').toUpperCase();
+  if (okCode(syncCode)) { if (!syncRooms.has(syncCode)) syncRooms.set(syncCode, new Set()); syncRooms.get(syncCode).add(ws); ws.on('close', () => { const st = syncRooms.get(syncCode); if (st) { st.delete(ws); if (!st.size) syncRooms.delete(syncCode); } }); }
   if (!rooms.has(room)) rooms.set(room, new Set());
   const set = rooms.get(room); set.add(ws);
   const notify = () => { const has = [...set].some(c => c.role === 'prompter'); set.forEach(c => c.readyState === 1 && c.send(JSON.stringify({ type: 'presence', prompter: has, controllers: [...set].filter(c => c.role === 'controller').length }))); };
@@ -209,4 +279,4 @@ wss.on('connection', (ws, req) => {
 });
 
 if (APP_PASSWORD) console.log('Login ativado (APP_PASSWORD).'); else console.log('AVISO: sem APP_PASSWORD — acesso aberto a quem alcançar o servidor.');
-server.listen(PORT, () => console.log(`Teleprompter em http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`Teleprompter em http://localhost:${PORT} (biblioteca: ${store.kind})`));
