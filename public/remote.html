@@ -18,7 +18,7 @@ body{display:flex;flex-direction:column;height:100vh;height:100dvh;padding:max(8
 #hud{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:#000d;border:1px solid #555;border-radius:20px;padding:6px 16px;font-size:1.2rem;display:none;z-index:3}
 #tip{position:absolute;right:8px;bottom:8px;font-size:.7rem;color:#667;z-index:3;pointer-events:none}
 .sp{display:flex;align-items:center;gap:8px;margin-bottom:8px}.sp input{flex:1}.sp b{min-width:4.5ch;text-align:center}
-.g{display:grid;gap:8px;margin-bottom:8px}.g5{grid-template-columns:repeat(5,1fr)}.g6{grid-template-columns:1fr 4fr 1fr}
+.g{display:grid;gap:8px;margin-bottom:8px}.g5{grid-template-columns:repeat(6,1fr)}.g6{grid-template-columns:1fr 4fr 1fr}
 button{padding:.75rem .2rem;font-size:1.05rem;border-radius:12px;border:1px solid #333;background:#1b1e24;color:#fff;touch-action:manipulation}
 button:active{background:#2563eb}button.on{background:#2563eb}button.big{background:#2563eb;font-weight:700;font-size:1.2rem}
 details{font-size:.85rem;color:#9aa}input[type=text]{background:#1b1e24;border:1px solid #333;color:#fff;border-radius:8px;padding:.4rem;width:8em;text-transform:uppercase}
@@ -28,13 +28,13 @@ details{font-size:.85rem;color:#9aa}input[type=text]{background:#1b1e24;border:1
 <div id="view"><div id="empty">Aguardando o texto do app…<br><small>Abra o app e conecte-se a este código.</small></div><div id="txt"></div><div id="hud"></div><div id="tip">↕ arraste: velocidade · toque: ▶/⏸</div></div>
 <div class="sp"><button data-c="slower">−</button><input type="range" id="rng" min="10" max="600" step="5" value="60"><button data-c="faster">+</button><b id="spd">60</b></div>
 <div class="g g6"><button data-c="back">⏮</button><button class="big" data-c="toggle" id="play">▶ Iniciar</button><button data-c="forward">⏭</button></div>
-<div class="g g5"><button data-c="mode" id="mode">🎤</button><button data-c="bold" id="bold"><b>B</b></button><button data-c="mirror" id="mirror">🪞</button><button data-c="guide" id="guide">━</button><button data-c="restart">↺</button></div>
+<div class="g g5"><button data-c="mode" id="mode">🎤</button><button data-c="caps" id="caps">AA</button><button data-c="bold" id="bold"><b>B</b></button><button data-c="mirror" id="mirror">🪞</button><button data-c="guide" id="guide">━</button><button data-c="restart">↺</button></div>
 <details><summary>Código do app / mais</summary><p>Tamanho do texto <u>neste controle</u>: <button data-v="-2" style="padding:.4rem .7rem">🔍−</button> <button data-v="2" style="padding:.4rem .7rem">🔍+</button></p><p>Código: <input id="room" maxlength="16"> <button data-c="open" style="padding:.4rem .7rem">📺 Abrir</button> <button data-c="close" style="padding:.4rem .7rem">✕ Fechar</button> <button data-c="theme" style="padding:.4rem .7rem">🌗</button> <button data-c="loop" style="padding:.4rem .7rem">🔁</button> <button data-c="mirrorDir" style="padding:.4rem .7rem">↔/↕</button></p></details>
 <script>
 const $=id=>document.getElementById(id);
 const q=new URLSearchParams(location.search); let room=(q.get('room')||localStorage.getItem('tp-remote-room')||'').toUpperCase(); $('room').value=room;
 $('room').onchange=()=>{ room=$('room').value.trim().toUpperCase(); localStorage.setItem('tp-remote-room',room); connect(); };
-let ws, speed=60, playing=false, lastText=null, spans=[], marked=0, curW=-1, vfs=+localStorage.getItem('tp-vfs')||26, dragging=false;
+let ws, speed=60, playing=false, lastText=null, spans=[], marked=0, curW=-1, vfs=+localStorage.getItem('tp-vfs')||26, dragging=false, capsOn=false;
 const send=(cmd,value)=>{ if(ws&&ws.readyState===1) ws.send(JSON.stringify({type:'cmd',cmd,value})); };
 /* ---- texto (mesma tokenização do app para os índices baterem) ---- */
 function build(text){
@@ -60,6 +60,7 @@ function applyState(s){
   if(!dragging){ speed=s.speed; $('rng').value=speed; $('spd').textContent=speed; }
   $('pr').style.width=((s.progress||0)*100)+'%'; playing=s.playing; $('play').textContent=playing?'⏸ Pausar':'▶ Iniciar';
   $('mode').textContent={voice:'🎤',sound:'🔊',auto:'⏩'}[s.mode]||'⏩';
+  $('caps').classList.toggle('on',!!s.caps); if(!!s.caps!==capsOn){ capsOn=!!s.caps; $('txt').style.textTransform=capsOn?'uppercase':'none'; highlight(curW,true); }
   $('bold').classList.toggle('on',!!s.bold); $('mirror').classList.toggle('on',!!s.mirror); $('guide').classList.toggle('on',!!s.guide);
   if(s.fontSize) $('fs').textContent=s.fontSize;
   if(typeof s.word==='number') highlight(s.word);
