@@ -35,10 +35,10 @@ textarea#script{width:100%;min-height:36vh;flex:1;resize:vertical;background:var
 .settings label.chk{flex-direction:row;align-items:center;gap:8px;color:var(--fg)}
 .settings input[type=range]{width:100%}
 .settings output{color:var(--fg);font-weight:600}
-#libList .proj{display:flex;align-items:center;gap:6px;padding:8px 4px;margin-top:8px;border-bottom:2px solid var(--accent);font-weight:700;cursor:pointer}
-#libList .proj .n{color:var(--muted);font-weight:400;font-size:.85rem}
-#libList .proj .sp{flex:1}
-#libList .it{display:flex;justify-content:space-between;gap:8px;padding:8px 4px 8px 14px;border-bottom:1px solid var(--line)}
+#libList .it{display:flex;align-items:flex-start;gap:10px;padding:8px 4px;border-bottom:1px solid var(--line)}
+#libList .it input[type=checkbox],#libAll{width:22px;height:22px;margin-top:2px;flex:none}
+#libDelSel:not(:disabled){background:#dc2626;border-color:#dc2626;color:#fff}
+#libDelSel:disabled{opacity:.45}
 #libList .it.cur{background:var(--panel);border-left:3px solid var(--accent)}
 #libList .it small{color:var(--muted);display:block}
 #libList button{padding:.3rem .55rem}
@@ -92,7 +92,6 @@ dialog::backdrop{background:#0008}
   <div class="row libbar">
     <button id="btnLib">📚 <span data-i="library"></span></button>
     <input type="text" id="title" style="flex:1;min-width:150px">
-    <select id="projSel" style="max-width:190px"></select>
     <button id="btnNew">➕ <span data-i="newItem"></span></button>
   </div>
   <textarea id="script" spellcheck="false" data-ph="text_ph"></textarea>
@@ -156,8 +155,9 @@ dialog::backdrop{background:#0008}
 </div>
 
 <dialog id="dlgLib"><h3>📚 <span data-i="library"></span></h3>
-  <div class="row"><input type="text" id="libSearch" style="flex:1;min-width:120px"><button id="libNewProj">📁 <span data-i="newProject"></span></button><button id="libNewItem">➕</button></div>
-  <div id="libList" style="max-height:52vh;overflow:auto;margin:10px 0"></div>
+  <div class="row"><input type="text" id="libSearch" style="flex:1;min-width:120px"><button id="libNewItem">➕</button></div>
+  <div class="row" id="libSelBar" style="margin-top:10px;justify-content:space-between"><label class="chk" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="libAll"> <span data-i="selectAll"></span></label><button id="libDelSel" disabled>🗑 <span data-i="deleteSel"></span> (<span id="libSelN">0</span>)</button></div>
+  <div id="libList" style="max-height:48vh;overflow:auto;margin:6px 0 10px"></div>
   <div class="row" style="justify-content:space-between"><div class="row"><button id="libExport">⬇ <span data-i="backup"></span></button><button id="libImport">⬆ <span data-i="restore"></span></button></div><button id="libClose" data-i="close"></button></div>
   <input type="file" id="libFile" accept=".json,application/json" hidden></dialog>
 <dialog id="dlgInbox"><h3 data-i="inbox_title"></h3><p class="count" id="inboxHelp"></p><div id="mails"></div>
@@ -174,9 +174,9 @@ dialog::backdrop{background:#0008}
 'use strict';
 /* =============== i18n =============== */
 const T = {
-pt:{title:'TELEPROMPTER UNIÃO',text_ph:'Cole ou digite seu texto aqui (sem limite de caracteres)…',import:'Importar .txt',inbox:'📧 E-mail',remote:'📱 Controle remoto',clear:'Limpar',start:'▶ Iniciar teleprompter',mode:'Modo de rolagem',mode_voice:'Seguir minha voz (reconhecimento de fala)',mode_sound:'Rolar enquanto eu falar (volume do microfone)',mode_auto:'Automático (velocidade fixa)',speed:'Velocidade',fontSize:'Tamanho da fonte',fontFamily:'Família da fonte',width:'Largura do texto',bold:'Negrito',italic:'Itálico',theme:'Tema',dark:'Escuro',light:'Claro',language:'Idioma',mirror:'Espelhar texto',mirrorDir:'Direção do espelho',horizontal:'Horizontal',vertical:'Vertical',orientation:'Orientação',orient_auto:'Padrão',landscape:'Paisagem',portrait:'Retrato',loop:'Repetir em loop',center:'Texto centralizado',guide:'Linha-guia de leitura',guideY:'Posição da linha-guia',library:'Biblioteca',newItem:'Novo',newProject:'Projeto',untitled:'Sem título',noProject:'Sem projeto',search:'Buscar…',title_ph:'Título da apresentação',open:'Abrir',dup:'Duplicar',copy:'cópia',confirm_del:'Excluir esta apresentação?',confirm_delproj:'Excluir este projeto? As apresentações dele vão para “Sem projeto”.',ask_proj:'Nome do projeto:',rename:'Renomear',backup:'Backup',restore:'Restaurar',restored:'apresentações restauradas',empty_lib:'Nenhuma apresentação.',fade:'Esmaecer texto já lido',gapBoost:'Acelerar nos espaços entre estrofes',startAuto:'⏩ Rolagem automática',startVoice:'🎤 Seguir minha voz',textColor:'Cor do texto',chars:'caracteres',words:'palavras',inbox_title:'Textos recebidos por e-mail',no_mail:'Nenhum e-mail recebido.',load:'Usar',del:'Excluir',close:'Fechar',no_server:'Servidor não encontrado. Abra o app pelo servidor Node para usar e-mail e controle remoto.',remote_help:'Abra o link abaixo (ou leia o QR) em outro aparelho para controlar este teleprompter. Também funciona com controles Bluetooth (teclado/clicker).',code:'Código',empty:'Escreva ou cole um texto primeiro.',noSR:'Reconhecimento de voz não suportado neste navegador — usando modo por volume.',micDenied:'Permissão do microfone negada.',listening:'Ouvindo…',paused:'Pausado',connected:'Controle conectado',waiting:'Aguardando controle…',offline_remote:'Remoto indisponível (sem servidor).',inbox_help:'Envie um e-mail para o endereço configurado no servidor: o assunto vira o título e o corpo vira o texto.'},
-en:{title:'TELEPROMPTER UNIÃO',text_ph:'Paste or type your script here (no character limit)…',import:'Import .txt',inbox:'📧 Email',remote:'📱 Remote control',clear:'Clear',start:'▶ Start teleprompter',mode:'Scroll mode',mode_voice:'Follow my voice (speech recognition)',mode_sound:'Scroll while I speak (mic volume)',mode_auto:'Automatic (fixed speed)',speed:'Speed',fontSize:'Font size',fontFamily:'Font family',width:'Text width',bold:'Bold',italic:'Italic',theme:'Theme',dark:'Dark',light:'Light',language:'Language',mirror:'Mirror text',mirrorDir:'Mirror direction',horizontal:'Horizontal',vertical:'Vertical',orientation:'Orientation',orient_auto:'Default',landscape:'Landscape',portrait:'Portrait',loop:'Loop',center:'Center text',guide:'Reading guide line',guideY:'Guide line position',library:'Library',newItem:'New',newProject:'Project',untitled:'Untitled',noProject:'No project',search:'Search…',title_ph:'Presentation title',open:'Open',dup:'Duplicate',copy:'copy',confirm_del:'Delete this presentation?',confirm_delproj:'Delete this project? Its presentations move to “No project”.',ask_proj:'Project name:',rename:'Rename',backup:'Backup',restore:'Restore',restored:'presentations restored',empty_lib:'No presentations.',fade:'Fade text already read',gapBoost:'Speed up on gaps between stanzas',startAuto:'⏩ Auto scroll',startVoice:'🎤 Follow my voice',textColor:'Text color',chars:'characters',words:'words',inbox_title:'Scripts received by email',no_mail:'No emails received.',load:'Use',del:'Delete',close:'Close',no_server:'Server not found. Open the app through the Node server to use email and remote control.',remote_help:'Open the link below (or scan the QR) on another device to control this teleprompter. Bluetooth keyboards/clickers also work.',code:'Code',empty:'Write or paste a script first.',noSR:'Speech recognition not supported in this browser — using volume mode.',micDenied:'Microphone permission denied.',listening:'Listening…',paused:'Paused',connected:'Remote connected',waiting:'Waiting for remote…',offline_remote:'Remote unavailable (no server).',inbox_help:'Send an email to the address configured on the server: the subject becomes the title and the body the script.'},
-es:{title:'TELEPROMPTER UNIÃO',text_ph:'Pega o escribe tu texto aquí (sin límite de caracteres)…',import:'Importar .txt',inbox:'📧 Correo',remote:'📱 Control remoto',clear:'Borrar',start:'▶ Iniciar teleprompter',mode:'Modo de desplazamiento',mode_voice:'Seguir mi voz (reconocimiento de voz)',mode_sound:'Desplazar mientras hablo (volumen del micrófono)',mode_auto:'Automático (velocidad fija)',speed:'Velocidad',fontSize:'Tamaño de fuente',fontFamily:'Familia de fuente',width:'Ancho del texto',bold:'Negrita',italic:'Cursiva',theme:'Tema',dark:'Oscuro',light:'Claro',language:'Idioma',mirror:'Espejar texto',mirrorDir:'Dirección del espejo',horizontal:'Horizontal',vertical:'Vertical',orientation:'Orientación',orient_auto:'Predeterminada',landscape:'Horizontal (paisaje)',portrait:'Vertical (retrato)',loop:'Repetir en bucle',center:'Texto centrado',guide:'Línea guía de lectura',guideY:'Posición de la línea guía',library:'Biblioteca',newItem:'Nuevo',newProject:'Proyecto',untitled:'Sin título',noProject:'Sin proyecto',search:'Buscar…',title_ph:'Título de la presentación',open:'Abrir',dup:'Duplicar',copy:'copia',confirm_del:'¿Eliminar esta presentación?',confirm_delproj:'¿Eliminar este proyecto? Sus presentaciones pasan a «Sin proyecto».',ask_proj:'Nombre del proyecto:',rename:'Renombrar',backup:'Copia',restore:'Restaurar',restored:'presentaciones restauradas',empty_lib:'Ninguna presentación.',fade:'Desvanecer texto ya leído',gapBoost:'Acelerar en los espacios entre estrofas',startAuto:'⏩ Desplazamiento automático',startVoice:'🎤 Seguir mi voz',textColor:'Color del texto',chars:'caracteres',words:'palabras',inbox_title:'Textos recibidos por correo',no_mail:'Ningún correo recibido.',load:'Usar',del:'Eliminar',close:'Cerrar',no_server:'Servidor no encontrado. Abre la app desde el servidor Node para usar correo y control remoto.',remote_help:'Abre el enlace (o escanea el QR) en otro dispositivo para controlar este teleprompter. También funcionan teclados/controles Bluetooth.',code:'Código',empty:'Escribe o pega un texto primero.',noSR:'Reconocimiento de voz no compatible — usando modo por volumen.',micDenied:'Permiso de micrófono denegado.',listening:'Escuchando…',paused:'En pausa',connected:'Control conectado',waiting:'Esperando control…',offline_remote:'Remoto no disponible (sin servidor).',inbox_help:'Envía un correo a la dirección configurada en el servidor: el asunto es el título y el cuerpo el texto.'}
+pt:{title:'TELEPROMPTER UNIÃO',text_ph:'Cole ou digite seu texto aqui (sem limite de caracteres)…',import:'Importar .txt',inbox:'📧 E-mail',remote:'📱 Controle remoto',clear:'Limpar',start:'▶ Iniciar teleprompter',mode:'Modo de rolagem',mode_voice:'Seguir minha voz (reconhecimento de fala)',mode_sound:'Rolar enquanto eu falar (volume do microfone)',mode_auto:'Automático (velocidade fixa)',speed:'Velocidade',fontSize:'Tamanho da fonte',fontFamily:'Família da fonte',width:'Largura do texto',bold:'Negrito',italic:'Itálico',theme:'Tema',dark:'Escuro',light:'Claro',language:'Idioma',mirror:'Espelhar texto',mirrorDir:'Direção do espelho',horizontal:'Horizontal',vertical:'Vertical',orientation:'Orientação',orient_auto:'Padrão',landscape:'Paisagem',portrait:'Retrato',loop:'Repetir em loop',center:'Texto centralizado',guide:'Linha-guia de leitura',guideY:'Posição da linha-guia',library:'Biblioteca',newItem:'Novo',selectAll:'Selecionar tudo',deleteSel:'Apagar',confirm_delmany:'Apagar {n} apresentação(ões) selecionada(s)? Esta ação não pode ser desfeita.',untitled:'Sem título',noProject:'Sem projeto',search:'Buscar…',title_ph:'Título da apresentação',open:'Abrir',dup:'Duplicar',copy:'cópia',confirm_del:'Excluir esta apresentação?',confirm_delproj:'Excluir este projeto? As apresentações dele vão para “Sem projeto”.',ask_proj:'Nome do projeto:',rename:'Renomear',backup:'Backup',restore:'Restaurar',restored:'apresentações restauradas',empty_lib:'Nenhuma apresentação.',fade:'Esmaecer texto já lido',gapBoost:'Acelerar nos espaços entre estrofes',startAuto:'⏩ Rolagem automática',startVoice:'🎤 Seguir minha voz',textColor:'Cor do texto',chars:'caracteres',words:'palavras',inbox_title:'Textos recebidos por e-mail',no_mail:'Nenhum e-mail recebido.',load:'Usar',del:'Excluir',close:'Fechar',no_server:'Servidor não encontrado. Abra o app pelo servidor Node para usar e-mail e controle remoto.',remote_help:'Abra o link abaixo (ou leia o QR) em outro aparelho para controlar este teleprompter. Também funciona com controles Bluetooth (teclado/clicker).',code:'Código',empty:'Escreva ou cole um texto primeiro.',noSR:'Reconhecimento de voz não suportado neste navegador — usando modo por volume.',micDenied:'Permissão do microfone negada.',listening:'Ouvindo…',paused:'Pausado',connected:'Controle conectado',waiting:'Aguardando controle…',offline_remote:'Remoto indisponível (sem servidor).',inbox_help:'Envie um e-mail para o endereço configurado no servidor: o assunto vira o título e o corpo vira o texto.'},
+en:{title:'TELEPROMPTER UNIÃO',text_ph:'Paste or type your script here (no character limit)…',import:'Import .txt',inbox:'📧 Email',remote:'📱 Remote control',clear:'Clear',start:'▶ Start teleprompter',mode:'Scroll mode',mode_voice:'Follow my voice (speech recognition)',mode_sound:'Scroll while I speak (mic volume)',mode_auto:'Automatic (fixed speed)',speed:'Speed',fontSize:'Font size',fontFamily:'Font family',width:'Text width',bold:'Bold',italic:'Italic',theme:'Theme',dark:'Dark',light:'Light',language:'Language',mirror:'Mirror text',mirrorDir:'Mirror direction',horizontal:'Horizontal',vertical:'Vertical',orientation:'Orientation',orient_auto:'Default',landscape:'Landscape',portrait:'Portrait',loop:'Loop',center:'Center text',guide:'Reading guide line',guideY:'Guide line position',library:'Library',newItem:'New',selectAll:'Select all',deleteSel:'Delete',confirm_delmany:'Delete {n} selected presentation(s)? This cannot be undone.',untitled:'Untitled',noProject:'No project',search:'Search…',title_ph:'Presentation title',open:'Open',dup:'Duplicate',copy:'copy',confirm_del:'Delete this presentation?',confirm_delproj:'Delete this project? Its presentations move to “No project”.',ask_proj:'Project name:',rename:'Rename',backup:'Backup',restore:'Restore',restored:'presentations restored',empty_lib:'No presentations.',fade:'Fade text already read',gapBoost:'Speed up on gaps between stanzas',startAuto:'⏩ Auto scroll',startVoice:'🎤 Follow my voice',textColor:'Text color',chars:'characters',words:'words',inbox_title:'Scripts received by email',no_mail:'No emails received.',load:'Use',del:'Delete',close:'Close',no_server:'Server not found. Open the app through the Node server to use email and remote control.',remote_help:'Open the link below (or scan the QR) on another device to control this teleprompter. Bluetooth keyboards/clickers also work.',code:'Code',empty:'Write or paste a script first.',noSR:'Speech recognition not supported in this browser — using volume mode.',micDenied:'Microphone permission denied.',listening:'Listening…',paused:'Paused',connected:'Remote connected',waiting:'Waiting for remote…',offline_remote:'Remote unavailable (no server).',inbox_help:'Send an email to the address configured on the server: the subject becomes the title and the body the script.'},
+es:{title:'TELEPROMPTER UNIÃO',text_ph:'Pega o escribe tu texto aquí (sin límite de caracteres)…',import:'Importar .txt',inbox:'📧 Correo',remote:'📱 Control remoto',clear:'Borrar',start:'▶ Iniciar teleprompter',mode:'Modo de desplazamiento',mode_voice:'Seguir mi voz (reconocimiento de voz)',mode_sound:'Desplazar mientras hablo (volumen del micrófono)',mode_auto:'Automático (velocidad fija)',speed:'Velocidad',fontSize:'Tamaño de fuente',fontFamily:'Familia de fuente',width:'Ancho del texto',bold:'Negrita',italic:'Cursiva',theme:'Tema',dark:'Oscuro',light:'Claro',language:'Idioma',mirror:'Espejar texto',mirrorDir:'Dirección del espejo',horizontal:'Horizontal',vertical:'Vertical',orientation:'Orientación',orient_auto:'Predeterminada',landscape:'Horizontal (paisaje)',portrait:'Vertical (retrato)',loop:'Repetir en bucle',center:'Texto centrado',guide:'Línea guía de lectura',guideY:'Posición de la línea guía',library:'Biblioteca',newItem:'Nuevo',selectAll:'Seleccionar todo',deleteSel:'Eliminar',confirm_delmany:'¿Eliminar {n} presentación(es) seleccionada(s)? No se puede deshacer.',untitled:'Sin título',noProject:'Sin proyecto',search:'Buscar…',title_ph:'Título de la presentación',open:'Abrir',dup:'Duplicar',copy:'copia',confirm_del:'¿Eliminar esta presentación?',confirm_delproj:'¿Eliminar este proyecto? Sus presentaciones pasan a «Sin proyecto».',ask_proj:'Nombre del proyecto:',rename:'Renombrar',backup:'Copia',restore:'Restaurar',restored:'presentaciones restauradas',empty_lib:'Ninguna presentación.',fade:'Desvanecer texto ya leído',gapBoost:'Acelerar en los espacios entre estrofas',startAuto:'⏩ Desplazamiento automático',startVoice:'🎤 Seguir mi voz',textColor:'Color del texto',chars:'caracteres',words:'palabras',inbox_title:'Textos recibidos por correo',no_mail:'Ningún correo recibido.',load:'Usar',del:'Eliminar',close:'Cerrar',no_server:'Servidor no encontrado. Abre la app desde el servidor Node para usar correo y control remoto.',remote_help:'Abre el enlace (o escanea el QR) en otro dispositivo para controlar este teleprompter. También funcionan teclados/controles Bluetooth.',code:'Código',empty:'Escribe o pega un texto primero.',noSR:'Reconocimiento de voz no compatible — usando modo por volumen.',micDenied:'Permiso de micrófono denegado.',listening:'Escuchando…',paused:'En pausa',connected:'Control conectado',waiting:'Esperando control…',offline_remote:'Remoto no disponible (sin servidor).',inbox_help:'Envía un correo a la dirección configurada en el servidor: el asunto es el título y el cuerpo el texto.'}
 ,fr:{title:'TELEPROMPTER UNIÃO',text_ph:'Collez ou saisissez votre texte ici (sans limite)…',import:'Importer .txt',inbox:'📧 E-mail',remote:'📱 Télécommande',clear:'Effacer',start:'▶ Démarrer',mode:'Mode de défilement',mode_voice:'Suivre ma voix (reconnaissance vocale)',mode_sound:'Défiler pendant que je parle (volume du micro)',mode_auto:'Automatique (vitesse fixe)',speed:'Vitesse',fontSize:'Taille de police',fontFamily:'Famille de police',width:'Largeur du texte',bold:'Gras',italic:'Italique',theme:'Thème',dark:'Sombre',light:'Clair',language:'Langue',mirror:'Miroir',mirrorDir:'Direction du miroir',horizontal:'Horizontal',vertical:'Vertical',orientation:'Orientation',orient_auto:'Par défaut',landscape:'Paysage',portrait:'Portrait',loop:'Boucle',center:'Texte centré',guide:'Ligne de lecture',textColor:'Couleur du texte',chars:'caractères',words:'mots',inbox_title:'Textes reçus par e-mail',no_mail:'Aucun e-mail reçu.',load:'Utiliser',del:'Supprimer',close:'Fermer',code:'Code',empty:'Saisissez un texte d’abord.',micDenied:'Accès au micro refusé.'},
 de:{title:'TELEPROMPTER UNIÃO',text_ph:'Text hier einfügen oder eingeben (ohne Zeichenlimit)…',import:'.txt importieren',inbox:'📧 E-Mail',remote:'📱 Fernsteuerung',clear:'Leeren',start:'▶ Starten',mode:'Scroll-Modus',mode_voice:'Meiner Stimme folgen (Spracherkennung)',mode_sound:'Scrollen, solange ich spreche (Mikrofonpegel)',mode_auto:'Automatisch (feste Geschwindigkeit)',speed:'Geschwindigkeit',fontSize:'Schriftgröße',fontFamily:'Schriftart',width:'Textbreite',bold:'Fett',italic:'Kursiv',theme:'Design',dark:'Dunkel',light:'Hell',language:'Sprache',mirror:'Text spiegeln',mirrorDir:'Spiegelrichtung',horizontal:'Horizontal',vertical:'Vertikal',orientation:'Ausrichtung',orient_auto:'Standard',landscape:'Querformat',portrait:'Hochformat',loop:'Endlosschleife',center:'Text zentrieren',guide:'Leselinie',textColor:'Textfarbe',chars:'Zeichen',words:'Wörter',inbox_title:'Per E-Mail empfangene Texte',no_mail:'Keine E-Mails empfangen.',load:'Verwenden',del:'Löschen',close:'Schließen',code:'Code',empty:'Bitte zuerst einen Text eingeben.',micDenied:'Mikrofonzugriff verweigert.'},
 it:{title:'TELEPROMPTER UNIÃO',text_ph:'Incolla o scrivi qui il testo (senza limiti)…',import:'Importa .txt',inbox:'📧 Email',remote:'📱 Telecomando',clear:'Cancella',start:'▶ Avvia',mode:'Modalità di scorrimento',mode_voice:'Segui la mia voce (riconoscimento vocale)',mode_sound:'Scorri mentre parlo (volume microfono)',mode_auto:'Automatico (velocità fissa)',speed:'Velocità',fontSize:'Dimensione carattere',fontFamily:'Famiglia di caratteri',width:'Larghezza testo',bold:'Grassetto',italic:'Corsivo',theme:'Tema',dark:'Scuro',light:'Chiaro',language:'Lingua',mirror:'Specchia testo',mirrorDir:'Direzione specchio',horizontal:'Orizzontale',vertical:'Verticale',orientation:'Orientamento',orient_auto:'Predefinito',landscape:'Orizzontale (paesaggio)',portrait:'Verticale (ritratto)',loop:'Ripeti in loop',center:'Testo centrato',guide:'Linea di lettura',textColor:'Colore del testo',chars:'caratteri',words:'parole',inbox_title:'Testi ricevuti via email',no_mail:'Nessuna email ricevuta.',load:'Usa',del:'Elimina',close:'Chiudi',code:'Codice',empty:'Scrivi prima un testo.',micDenied:'Accesso al microfono negato.'}
@@ -205,7 +205,7 @@ const BIND = ['mode','speed','fontSize','fontFamily','width','bold','italic','th
 function applyI18n(){
   document.documentElement.lang = SPEECH_LANG[S.lang];
   document.querySelectorAll('[data-i]').forEach(e=>e.textContent=t(e.dataset.i));
-  $('script').placeholder = t('text_ph'); $('title').placeholder = t('title_ph'); $('libSearch').placeholder = t('search'); renderProjSel(); if($('dlgLib').open) renderLib();
+  $('script').placeholder = t('text_ph'); $('title').placeholder = t('title_ph'); $('libSearch').placeholder = t('search'); if($('dlgLib').open) renderLib();
   $('inboxHelp').textContent = t('inbox_help');
   updateCount();
 }
@@ -222,7 +222,7 @@ function updateCount(){
 }
 /* =============== Biblioteca (apresentações + projetos) =============== */
 // meta em 'lib' (sem os textos) e cada texto em 'text:<id>' — textos grandes não são regravados a cada tecla em outros itens
-const lib={projects:[],items:[],currentId:null,collapsed:{}};
+const lib={items:[],currentId:null};
 const uid=()=>(crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2));
 const curItem=()=>lib.items.find(i=>i.id===lib.currentId);
 const saveMeta=()=>idb.set('lib',JSON.parse(JSON.stringify(lib)));
@@ -236,76 +236,66 @@ function scheduleSave(){
 }
 $('script').addEventListener('input',()=>{ updateCount(); scheduleSave(); });
 window.addEventListener('pagehide',()=>{ flushSave(); }); document.addEventListener('visibilitychange',()=>{ if(document.hidden) flushSave(); });
-function renderProjSel(){
-  const sel=$('projSel'), it=curItem(); sel.textContent='';
-  const o=document.createElement('option'); o.value=''; o.textContent='📁 '+t('noProject'); sel.append(o);
-  for(const p of lib.projects){ const e=document.createElement('option'); e.value=p.id; e.textContent='📁 '+p.name; sel.append(e); }
-  sel.value=(it&&it.projectId)||'';
-}
 async function openItem(id){
   await flushSave(); const it=lib.items.find(i=>i.id===id); if(!it)return;
   lib.currentId=id; $('script').value=(await idb.get('text:'+id))||''; $('title').value=it.title;
-  updateCount(); renderProjSel(); await saveMeta();
+  updateCount(); await saveMeta();
 }
-async function newItem(title,text,projectId){
+async function newItem(title,text){
   await flushSave(); const id=uid(); text=text||'';
-  const it={id,title:title||`${t('untitled')} ${lib.items.length+1}`,projectId:projectId===undefined?(curItem()?.projectId||null):projectId,...metaOf(text)};
+  const it={id,title:title||`${t('untitled')} ${lib.items.length+1}`,...metaOf(text)};
   lib.items.push(it); await idb.set('text:'+id,text); await openItem(id); return it;
-}
-async function deleteItem(id){
-  lib.items=lib.items.filter(i=>i.id!==id); await idb.del('text:'+id);
-  if(lib.currentId===id){ if(lib.items.length) await openItem(lib.items.slice().sort((a,b)=>b.updated-a.updated)[0].id); else await newItem(); } else await saveMeta();
 }
 async function loadLib(){
   const meta=await idb.get('lib');
-  if(meta){ Object.assign(lib,meta); }
-  else { const old=(await idb.get('script'))||''; const id=uid(); lib.items=[{id,title:t('untitled')+' 1',projectId:null,...metaOf(old)}]; lib.currentId=id; await idb.set('text:'+id,old); await saveMeta(); }
+  if(meta){ lib.items=(meta.items||[]).map(({projectId,...i})=>i); lib.currentId=meta.currentId; }
+  else { const old=(await idb.get('script'))||''; const id=uid(); lib.items=[{id,title:t('untitled')+' 1',...metaOf(old)}]; lib.currentId=id; await idb.set('text:'+id,old); await saveMeta(); }
   if(!curItem()){ if(lib.items.length) lib.currentId=lib.items[0].id; else { await newItem(); return; } }
   await openItem(lib.currentId);
 }
 let titleT; $('title').addEventListener('input',()=>{ const it=curItem(); if(!it)return; it.title=$('title').value; it.updated=Date.now(); clearTimeout(titleT); titleT=setTimeout(saveMeta,400); });
-$('projSel').onchange=async()=>{ const it=curItem(); if(it){ it.projectId=$('projSel').value||null; await saveMeta(); } };
 $('btnNew').onclick=()=>newItem();
 $('btnClear').onclick=()=>{ $('script').value=''; updateCount(); scheduleSave(); };
 $('btnImport').onclick=()=>$('file').click();
 $('file').onchange=async e=>{ const f=e.target.files[0]; if(!f)return; await newItem(f.name.replace(/\.[^.]+$/,''),await f.text()); e.target.value=''; };
 
+const selected=new Set();
+async function deleteMany(ids){
+  const set=new Set(ids); const wasCur=set.has(lib.currentId);
+  lib.items=lib.items.filter(i=>!set.has(i.id)); for(const id of set) await idb.del('text:'+id);
+  if(wasCur){ lib.currentId=null; if(lib.items.length) await openItem(lib.items.slice().sort((a,b)=>b.updated-a.updated)[0].id); else await newItem(); } else await saveMeta();
+}
 function renderLib(){
   const box=$('libList'); box.textContent=''; const q=$('libSearch').value.trim().toLowerCase();
-  const match=i=>!q||i.title.toLowerCase().includes(q)||(i.preview||'').toLowerCase().includes(q);
   const mk=(tag,cls,txt)=>{ const e=document.createElement(tag); if(cls)e.className=cls; if(txt!=null)e.textContent=txt; return e; };
-  const btn=(label,title,fn)=>{ const b=mk('button',null,label); b.title=title; b.onclick=e=>{ e.stopPropagation(); fn(); }; return b; };
-  const groups=[...lib.projects.map(p=>({p,items:[]})),{p:null,items:[]}];
-  for(const i of lib.items.slice().sort((a,b)=>b.updated-a.updated)){ if(!match(i))continue; (groups.find(g=>g.p&&g.p.id===i.projectId)||groups[groups.length-1]).items.push(i); }
-  let any=false;
-  for(const g of groups){
-    if(!g.p&&!g.items.length)continue; if(q&&!g.items.length)continue; any=true;
-    const key=g.p?g.p.id:'_none', closed=lib.collapsed[key]&&!q;
-    const h=mk('div','proj'); h.append(mk('span',null,closed?'▸':'▾'),mk('span',null,'📁 '+(g.p?g.p.name:t('noProject'))),mk('span','n','('+g.items.length+')'),mk('span','sp'));
-    if(g.p){ h.append(btn('✎',t('rename'),async()=>{ const n=prompt(t('ask_proj'),g.p.name); if(n&&n.trim()){ g.p.name=n.trim(); await saveMeta(); renderLib(); renderProjSel(); } }),
-      btn('🗑','',async()=>{ if(!confirm(t('confirm_delproj')))return; lib.items.forEach(i=>{ if(i.projectId===g.p.id) i.projectId=null; }); lib.projects=lib.projects.filter(x=>x!==g.p); await saveMeta(); renderLib(); renderProjSel(); })); }
-    h.onclick=async()=>{ lib.collapsed[key]=!lib.collapsed[key]; await saveMeta(); renderLib(); };
-    box.append(h); if(closed)continue;
-    for(const i of g.items){
-      const r=mk('div','it'+(i.id===lib.currentId?' cur':'')); const info=mk('div'); info.style.cursor='pointer'; info.style.flex='1';
-      info.append(mk('b',null,i.title||t('untitled')),mk('small',null,`${(i.size||0).toLocaleString()} ${t('chars')} · ${new Date(i.updated).toLocaleDateString()}`),mk('small',null,i.preview||''));
-      info.onclick=async()=>{ await openItem(i.id); $('dlgLib').close(); };
-      const act=mk('div','row'); act.style.flexWrap='nowrap'; act.style.alignSelf='flex-start';
-      act.append(btn('⧉',t('dup'),async()=>{ await flushSave(); const tx=(await idb.get('text:'+i.id))||''; await newItem(`${i.title} (${t('copy')})`,tx,i.projectId); renderLib(); }),
-                 btn('🗑','',async()=>{ if(!confirm(t('confirm_del')))return; await deleteItem(i.id); renderLib(); }));
-      r.append(info,act); box.append(r);
-    }
+  const ids=new Set(lib.items.map(i=>i.id)); for(const id of [...selected]) if(!ids.has(id)) selected.delete(id);
+  const vis=lib.items.filter(i=>!q||i.title.toLowerCase().includes(q)||(i.preview||'').toLowerCase().includes(q)).sort((a,b)=>b.updated-a.updated);
+  const sync=()=>{ $('libSelN').textContent=selected.size; $('libDelSel').disabled=!selected.size; $('libAll').checked=vis.length>0&&vis.every(i=>selected.has(i.id)); $('libAll').indeterminate=selected.size>0&&!$('libAll').checked; };
+  for(const i of vis){
+    const r=mk('div','it'+(i.id===lib.currentId?' cur':''));
+    const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=selected.has(i.id); cb.onchange=()=>{ cb.checked?selected.add(i.id):selected.delete(i.id); sync(); };
+    const info=mk('div'); info.style.cssText='cursor:pointer;flex:1;min-width:0';
+    info.append(mk('b',null,i.title||t('untitled')),mk('small',null,`${(i.size||0).toLocaleString()} ${t('chars')} · ${new Date(i.updated).toLocaleDateString()}`),mk('small',null,i.preview||''));
+    info.onclick=async()=>{ await openItem(i.id); $('dlgLib').close(); };
+    const dup=mk('button',null,'⧉'); dup.title=t('dup'); dup.onclick=async()=>{ await flushSave(); const tx=(await idb.get('text:'+i.id))||''; await newItem(`${i.title} (${t('copy')})`,tx); renderLib(); };
+    r.append(cb,info,dup); box.append(r);
   }
-  if(!any) box.append(mk('p','count',t('empty_lib')));
+  if(!vis.length) box.append(mk('p','count',t('empty_lib')));
+  sync();
 }
-$('btnLib').onclick=async()=>{ await flushSave(); $('libSearch').value=''; renderLib(); $('dlgLib').showModal(); };
+$('libAll').onchange=()=>{ const q=$('libSearch').value.trim().toLowerCase(); const vis=lib.items.filter(i=>!q||i.title.toLowerCase().includes(q)||(i.preview||'').toLowerCase().includes(q)); vis.forEach(i=>$('libAll').checked?selected.add(i.id):selected.delete(i.id)); renderLib(); };
+$('libDelSel').onclick=async()=>{
+  const n=selected.size; if(!n)return;
+  if(!confirm(t('confirm_delmany').replace('{n}',n))) return;   // confirmação antes de apagar
+  await deleteMany([...selected]); selected.clear(); renderLib();
+};
+$('btnLib').onclick=async()=>{ await flushSave(); $('libSearch').value=''; selected.clear(); renderLib(); $('dlgLib').showModal(); };
 $('libClose').onclick=()=>$('dlgLib').close(); $('libSearch').oninput=renderLib;
 $('libNewItem').onclick=async()=>{ await newItem(); $('dlgLib').close(); $('title').focus(); $('title').select(); };
-$('libNewProj').onclick=async()=>{ const n=prompt(t('ask_proj')); if(n&&n.trim()){ lib.projects.push({id:uid(),name:n.trim()}); await saveMeta(); renderLib(); renderProjSel(); } };
 // backup / restauração (um arquivo .json com tudo)
 $('libExport').onclick=async()=>{
   await flushSave(); const items=[]; for(const i of lib.items) items.push({...i,text:(await idb.get('text:'+i.id))||''});
-  const blob=new Blob([JSON.stringify({app:'teleprompter-uniao',v:1,projects:lib.projects,items})],{type:'application/json'});
+  const blob=new Blob([JSON.stringify({app:'teleprompter-uniao',v:1,items})],{type:'application/json'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='teleprompter-uniao-backup-'+new Date().toISOString().slice(0,10)+'.json'; document.body.append(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 };
 $('libImport').onclick=()=>$('libFile').click();
@@ -313,9 +303,8 @@ $('libFile').onchange=async e=>{
   const f=e.target.files[0]; e.target.value=''; if(!f)return;
   try{
     const d=JSON.parse(await f.text()); if(d.app!=='teleprompter-uniao'||!Array.isArray(d.items)) throw 0;
-    const pmap={}; for(const p of d.projects||[]){ const np={id:uid(),name:String(p.name)}; pmap[p.id]=np.id; lib.projects.push(np); }
-    for(const i of d.items){ const id=uid(), tx=String(i.text||''); lib.items.push({id,title:String(i.title||t('untitled')),projectId:pmap[i.projectId]||null,...metaOf(tx),updated:i.updated||Date.now()}); await idb.set('text:'+id,tx); }
-    await saveMeta(); renderLib(); renderProjSel(); toast(`${d.items.length} ${t('restored')}`);
+        for(const i of d.items){ const id=uid(), tx=String(i.text||''); lib.items.push({id,title:String(i.title||t('untitled')),...metaOf(tx),updated:i.updated||Date.now()}); await idb.set('text:'+id,tx); }
+    await saveMeta(); renderLib(); toast(`${d.items.length} ${t('restored')}`);
   }catch{ toast('Arquivo inválido / Invalid file'); }
 };
 let toastT; function toast(m,ms=3500){const e=$('toast');e.textContent=m;e.style.display='block';clearTimeout(toastT);toastT=setTimeout(()=>e.style.display='none',ms);}
