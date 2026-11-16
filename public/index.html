@@ -412,7 +412,7 @@ function connectWS(){
 let lastSent=0;
 function sendState(force){
   if(!ws||ws.readyState!==1)return; const n=performance.now(); if(!force&&n-lastSent<120)return; lastSent=n;
-  ws.send(JSON.stringify({type:'state',state:{playing:running,speed:S.speed,fontSize:S.fontSize,progress:maxPos>0?pos/maxPos:0,mode:S.mode,mirror:S.mirror,theme:S.theme,loop:S.loop,open:prompterOpen,bold:S.bold,guide:S.guide,caps:S.caps,
+  ws.send(JSON.stringify({type:'state',state:{playing:running,speed:S.speed,fontSize:S.fontSize,progress:maxPos>0?pos/maxPos:0,mode:S.mode,mirror:S.mirror,theme:S.theme,loop:S.loop,open:prompterOpen,bold:S.bold,guide:S.guide,caps:S.caps,italic:S.italic,ff:S.fontFamily,width:S.width,center:S.center,col:S.textColor,gy:S.guideY,fade:S.fade,pw:parseFloat(ROT.style.width)||0,
     word:(prompterOpen&&spans.length)?(MODE()==='voice'&&running?cur:wordAtPos(pos)):0,total:W.length}}));
 }
 // texto atual -> controle remoto (para acompanhar a leitura)

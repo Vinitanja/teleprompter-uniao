@@ -10,59 +10,92 @@ body{display:flex;flex-direction:column;height:100vh;height:100dvh;padding:max(8
 .top button{padding:.3rem .6rem;font-size:.9rem}
 .bar{height:6px;background:#222;border-radius:3px;overflow:hidden}.bar i{display:block;height:100%;background:#60a5fa;width:0;transition:width .2s}
 #view{flex:1;min-height:120px;position:relative;overflow:hidden;margin:8px 0;border:1px solid #2a2e36;border-radius:12px;background:#000;touch-action:none;user-select:none;-webkit-user-select:none}
-#view::before,#view::after{content:"";position:absolute;left:0;right:0;height:22%;z-index:2;pointer-events:none}
-#view::before{top:0;background:linear-gradient(#000,#0000)}#view::after{bottom:0;background:linear-gradient(#0000,#000)}
-#txt{position:absolute;left:0;right:0;top:0;padding:0 16px;line-height:1.45;transition:transform .35s ease-out;will-change:transform}
-#txt span.rd{opacity:.35}#txt span.now{background:#2563eb66;border-radius:4px;color:#fff}.gap{height:1.4em}
+#txt{position:absolute;left:0;right:0;top:0;margin:0 auto;line-height:1.4;transition:transform .35s ease-out;will-change:transform;word-wrap:break-word}
+#txt span.rd{opacity:.35}#txt span.now{background:#2563eb66;border-radius:4px}.gap{height:1.4em}
+#vguide{position:absolute;left:0;right:0;height:0;border-top:2px solid #60a5fa;opacity:.75;pointer-events:none;z-index:2}
 #empty{position:absolute;inset:0;display:grid;place-items:center;color:#667;text-align:center;padding:20px}
-#hud{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:#000d;border:1px solid #555;border-radius:20px;padding:6px 16px;font-size:1.2rem;display:none;z-index:3}
-#tip{position:absolute;right:8px;bottom:8px;font-size:.7rem;color:#667;z-index:3;pointer-events:none}
+#hud{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:#000d;color:#fff;border:1px solid #555;border-radius:20px;padding:6px 16px;font-size:1.2rem;display:none;z-index:5}
+#tip{position:absolute;right:8px;bottom:8px;font-size:.7rem;color:#889;z-index:3;pointer-events:none}
 .sp{display:flex;align-items:center;gap:8px;margin-bottom:8px}.sp input{flex:1}.sp b{min-width:4.5ch;text-align:center}
 .g{display:grid;gap:8px;margin-bottom:8px}.g5{grid-template-columns:repeat(6,1fr)}.g6{grid-template-columns:1fr 4fr 1fr}
 button{padding:.75rem .2rem;font-size:1.05rem;border-radius:12px;border:1px solid #333;background:#1b1e24;color:#fff;touch-action:manipulation}
 button:active{background:#2563eb}button.on{background:#2563eb}button.big{background:#2563eb;font-weight:700;font-size:1.2rem}
 details{font-size:.85rem;color:#9aa}input[type=text]{background:#1b1e24;border:1px solid #333;color:#fff;border-radius:8px;padding:.4rem;width:8em;text-transform:uppercase}
+.fsonly{display:none}
+/* ---- tela cheia: igual à tela principal, controles em camada que some sozinha ---- */
+body.fs{padding:0}
+body.fs .top,body.fs details,body.fs #tip{display:none}
+body.fs .bar{position:fixed;left:0;right:0;top:0;z-index:70;height:4px;border-radius:0;background:#0006}
+body.fs #view{position:fixed;inset:0;z-index:50;margin:0;border:0;border-radius:0;min-height:0}
+body.fs #ctl{position:fixed;left:0;right:0;bottom:0;z-index:60;padding:10px 10px max(10px,env(safe-area-inset-bottom));background:#000d;color:#fff;transition:opacity .3s}
+body.fs #ctl.hide{opacity:0;pointer-events:none}
+body.fs .fsonly{display:block}
+body.fs #txt span.now{background:none}
+#exitFs{width:100%;margin-top:0}
 </style></head><body>
-<div class="top"><span id="st">Conectando…</span><span><button data-c="fontDown">A−</button> <b id="fs" style="color:#eee">–</b> <button data-c="fontUp">A+</button></span></div>
+<div class="top"><span id="st">Conectando…</span><span><button data-c="fontDown">A−</button> <b id="fs" style="color:#eee">–</b> <button data-c="fontUp">A+</button> <button id="goFs" title="Tela cheia">⛶</button></span></div>
 <div class="bar"><i id="pr"></i></div>
-<div id="view"><div id="empty">Aguardando o texto do app…<br><small>Abra o app e conecte-se a este código.</small></div><div id="txt"></div><div id="hud"></div><div id="tip">↕ arraste: velocidade · toque: ▶/⏸</div></div>
-<div class="sp"><button data-c="slower">−</button><input type="range" id="rng" min="10" max="600" step="5" value="60"><button data-c="faster">+</button><b id="spd">60</b></div>
-<div class="g g6"><button data-c="back">⏮</button><button class="big" data-c="toggle" id="play">▶ Iniciar</button><button data-c="forward">⏭</button></div>
-<div class="g g5"><button data-c="mode" id="mode">🎤</button><button data-c="caps" id="caps">AA</button><button data-c="bold" id="bold"><b>B</b></button><button data-c="mirror" id="mirror">🪞</button><button data-c="guide" id="guide">━</button><button data-c="restart">↺</button></div>
-<details><summary>Código do app / mais</summary><p>Tamanho do texto <u>neste controle</u>: <button data-v="-2" style="padding:.4rem .7rem">🔍−</button> <button data-v="2" style="padding:.4rem .7rem">🔍+</button></p><p>Código: <input id="room" maxlength="16"> <button data-c="open" style="padding:.4rem .7rem">📺 Abrir</button> <button data-c="close" style="padding:.4rem .7rem">✕ Fechar</button> <button data-c="theme" style="padding:.4rem .7rem">🌗</button> <button data-c="loop" style="padding:.4rem .7rem">🔁</button> <button data-c="mirrorDir" style="padding:.4rem .7rem">↔/↕</button></p></details>
+<div id="view"><div id="empty">Aguardando o texto do app…<br><small>Abra o app e conecte-se a este código.</small></div><div id="txt"></div><div id="vguide"></div><div id="hud"></div><div id="tip">↕ arraste: velocidade · toque: ▶/⏸</div></div>
+<div id="ctl">
+  <div class="sp"><button data-c="slower">−</button><input type="range" id="rng" min="10" max="600" step="5" value="60"><button data-c="faster">+</button><b id="spd">60</b></div>
+  <div class="g g6"><button data-c="back">⏮</button><button class="big" data-c="toggle" id="play">▶ Iniciar</button><button data-c="forward">⏭</button></div>
+  <div class="g g5"><button data-c="mode" id="mode">🎤</button><button data-c="caps" id="caps">AA</button><button data-c="bold" id="bold"><b>B</b></button><button data-c="mirror" id="mirror">🪞</button><button data-c="guide" id="guide">━</button><button data-c="restart">↺</button></div>
+  <div class="fsonly"><div class="g" style="grid-template-columns:1fr 1fr 1fr"><button data-c="fontDown">A−</button><button data-c="fontUp">A+</button><button id="exitFs">✕ Sair</button></div></div>
+</div>
+<details><summary>Código do app / mais</summary><p>Tamanho do texto <u>neste controle</u> (visão pequena): <button data-v="-2" style="padding:.4rem .7rem">🔍−</button> <button data-v="2" style="padding:.4rem .7rem">🔍+</button></p><p>Código: <input id="room" maxlength="16"> <button data-c="open" style="padding:.4rem .7rem">📺 Abrir</button> <button data-c="close" style="padding:.4rem .7rem">✕ Fechar</button> <button data-c="theme" style="padding:.4rem .7rem">🌗</button> <button data-c="loop" style="padding:.4rem .7rem">🔁</button> <button data-c="mirrorDir" style="padding:.4rem .7rem">↔/↕</button></p></details>
 <script>
 const $=id=>document.getElementById(id);
 const q=new URLSearchParams(location.search); let room=(q.get('room')||localStorage.getItem('tp-remote-room')||'').toUpperCase(); $('room').value=room;
 $('room').onchange=()=>{ room=$('room').value.trim().toUpperCase(); localStorage.setItem('tp-remote-room',room); connect(); };
-let ws, speed=60, playing=false, lastText=null, spans=[], marked=0, curW=-1, vfs=+localStorage.getItem('tp-vfs')||26, dragging=false, capsOn=false;
+let ws, speed=60, playing=false, lastText=null, spans=[], marked=0, curW=-1, vfs=+localStorage.getItem('tp-vfs')||26, dragging=false, fsMode=false, look=null, lookKey='', fsPx=26;
 const send=(cmd,value)=>{ if(ws&&ws.readyState===1) ws.send(JSON.stringify({type:'cmd',cmd,value})); };
+const view=$('view'), txt=$('txt');
+/* ---- aparência: replica a tela principal (fonte, largura, cor, tema, linha-guia, esmaecimento) ---- */
+const lineY=()=>view.clientHeight*((look&&look.gy)||40)/100;
+function applyLook(force){
+  const l=look||{}; const key=JSON.stringify([l,fsMode,view.clientWidth,view.clientHeight,vfs]); if(!force&&key===lookKey)return; lookKey=key;
+  const dark=(l.th||'dark')==='dark', h=view.clientHeight, L=lineY();
+  // em tela cheia o tamanho é proporcional ao da tela principal, para as quebras de linha ficarem iguais
+  fsPx=(fsMode&&l.pw&&l.fontSize)?l.fontSize*view.clientWidth/l.pw:vfs;
+  view.style.background=dark?'#000':'#fff';
+  Object.assign(txt.style,{fontSize:fsPx+'px',fontFamily:l.ff||'inherit',fontWeight:l.bold?'700':'400',fontStyle:l.italic?'italic':'normal',textTransform:l.caps?'uppercase':'none',
+    color:(l.col&&l.col!=='auto')?l.col:(dark?'#f4f4f4':'#111'),width:(l.width||90)+'%',textAlign:l.center?'center':'left',paddingTop:L+'px',paddingBottom:(h-L)+'px'});
+  $('vguide').style.top=(L-4)+'px'; $('vguide').style.display=l.guide===false?'none':'block';
+  let m='none';
+  if(l.fade!==false){ const f=fsPx, st=[[0,.03],[L-3.2*f,.08],[L-1.6*f,.16],[L-.6*f,.32],[L,.85],[L+.25*f,1]].map(([y,a])=>[Math.max(0,Math.min(h,y)),a]).map(([y,a],i,ar)=>[i&&y<ar[i-1][0]?ar[i-1][0]:y,a]);
+    m=`linear-gradient(to bottom,${st.map(([y,a])=>`rgba(0,0,0,${a}) ${y.toFixed(1)}px`).join(',')})`; }
+  txt.style.webkitMaskImage=m; txt.style.maskImage=m;
+  txt.style.setProperty('--now',dark?'#2563eb66':'#2563eb44');
+  highlight(curW,true);
+}
 /* ---- texto (mesma tokenização do app para os índices baterem) ---- */
 function build(text){
-  const box=$('txt'); box.textContent=''; spans=[]; marked=0; curW=-1;
+  txt.textContent=''; spans=[]; marked=0; curW=-1;
   const frag=document.createDocumentFragment();
   for(const line of text.replace(/\r\n?/g,'\n').split('\n')){
     for(const tok of line.split(/[ \t]+/)){ if(!tok)continue; const sp=document.createElement('span'); sp.textContent=tok+' '; frag.appendChild(sp); spans.push(sp); }
     if(line.trim()) frag.appendChild(document.createElement('br')); else { const g=document.createElement('div'); g.className='gap'; frag.appendChild(g); }
   }
-  box.appendChild(frag); $('empty').style.display=spans.length?'none':'grid'; box.style.fontSize=vfs+'px'; highlight(0,true);
+  txt.appendChild(frag); $('empty').style.display=spans.length?'none':'grid'; applyLook(true);
 }
 function highlight(w,force){
   if(!spans.length)return; w=Math.max(0,Math.min(spans.length-1,w|0)); if(w===curW&&!force)return;
   if(curW>=0&&spans[curW]) spans[curW].classList.remove('now');
-  const a=Math.min(marked,w), b=Math.max(marked,w); for(let i=a;i<b;i++) spans[i].classList.toggle('rd',i<w);
   if(force){ for(let i=0;i<spans.length;i++) spans[i].classList.toggle('rd',i<w); }
+  else { const a=Math.min(marked,w), b=Math.max(marked,w); for(let i=a;i<b;i++) spans[i].classList.toggle('rd',i<w); }
   marked=w; curW=w; spans[w].classList.add('now');
-  const v=$('view'); $('txt').style.transform=`translateY(${-(spans[w].offsetTop-v.clientHeight*0.38)}px)`;
+  txt.style.transform=`translateY(${-(spans[w].offsetTop-lineY())}px)`;
 }
-document.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>{ vfs=Math.max(14,Math.min(80,vfs+(+b.dataset.v))); localStorage.setItem('tp-vfs',vfs); $('txt').style.fontSize=vfs+'px'; highlight(curW,true); });
+document.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>{ vfs=Math.max(14,Math.min(80,vfs+(+b.dataset.v))); localStorage.setItem('tp-vfs',vfs); applyLook(true); });
 /* ---- estado vindo do app ---- */
 function applyState(s){
   if(!dragging){ speed=s.speed; $('rng').value=speed; $('spd').textContent=speed; }
   $('pr').style.width=((s.progress||0)*100)+'%'; playing=s.playing; $('play').textContent=playing?'⏸ Pausar':'▶ Iniciar';
   $('mode').textContent={voice:'🎤',sound:'🔊',auto:'⏩'}[s.mode]||'⏩';
-  $('caps').classList.toggle('on',!!s.caps); if(!!s.caps!==capsOn){ capsOn=!!s.caps; $('txt').style.textTransform=capsOn?'uppercase':'none'; highlight(curW,true); }
-  $('bold').classList.toggle('on',!!s.bold); $('mirror').classList.toggle('on',!!s.mirror); $('guide').classList.toggle('on',!!s.guide);
+  $('caps').classList.toggle('on',!!s.caps); $('bold').classList.toggle('on',!!s.bold); $('mirror').classList.toggle('on',!!s.mirror); $('guide').classList.toggle('on',!!s.guide);
   if(s.fontSize) $('fs').textContent=s.fontSize;
+  look={fontSize:s.fontSize,ff:s.ff,width:s.width,center:s.center,col:s.col,gy:s.gy,fade:s.fade,pw:s.pw,th:s.theme,bold:s.bold,italic:s.italic,caps:s.caps,guide:s.guide};
+  applyLook();
   if(typeof s.word==='number') highlight(s.word);
 }
 function connect(){
@@ -78,14 +111,29 @@ function connect(){
     if(m.type==='state') applyState(m.state); };
 }
 /* ---- botões ---- */
-document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{ send(b.dataset.c); navigator.vibrate?.(12); });
-$('rng').oninput=e=>{ speed=+e.target.value; $('spd').textContent=speed; sendSpeed(true); };
+document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{ send(b.dataset.c); navigator.vibrate?.(12); showCtl(); });
+$('rng').oninput=e=>{ speed=+e.target.value; $('spd').textContent=speed; sendSpeed(true); showCtl(); };
+/* ---- tela cheia ---- */
+let ctlT, wake;
+function showCtl(){ const c=$('ctl'); c.classList.remove('hide'); clearTimeout(ctlT); if(fsMode) ctlT=setTimeout(()=>{ if(playing) c.classList.add('hide'); },3500); }
+async function setFs(on){
+  fsMode=on; document.body.classList.toggle('fs',on);
+  try{
+    if(on){ await document.documentElement.requestFullscreen?.(); navigator.wakeLock?.request('screen').then(l=>wake=l).catch(()=>{}); }
+    else { if(document.fullscreenElement) await document.exitFullscreen(); try{wake?.release();}catch{} }
+  }catch{}
+  showCtl(); setTimeout(()=>applyLook(true),60);
+}
+$('goFs').onclick=()=>setFs(true); $('exitFs').onclick=()=>setFs(false);
+document.addEventListener('fullscreenchange',()=>{ if(!document.fullscreenElement&&fsMode) setFs(false); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&fsMode) setFs(false); });
+window.addEventListener('resize',()=>applyLook()); window.addEventListener('orientationchange',()=>setTimeout(()=>applyLook(true),250));
 /* ---- toque na tela do texto: arrastar ↕ = velocidade, toque = play/pause ---- */
-let lastSp=0, hudT; const view=$('view');
+let lastSp=0, hudT;
 function sendSpeed(force){ const n=performance.now(); if(force||n-lastSp>70){ lastSp=n; send('speed',speed); } }
 function hud(){ const h=$('hud'); h.textContent='⏩ '+speed+' px/s'; h.style.display='block'; clearTimeout(hudT); hudT=setTimeout(()=>h.style.display='none',900); }
 let g=null;
-view.addEventListener('pointerdown',e=>{ g={y:e.clientY,s:speed,moved:false}; try{view.setPointerCapture(e.pointerId);}catch{} });
+view.addEventListener('pointerdown',e=>{ g={y:e.clientY,s:speed,moved:false}; try{view.setPointerCapture(e.pointerId);}catch{} showCtl(); });
 view.addEventListener('pointermove',e=>{ if(!g)return; const dy=g.y-e.clientY;
   if(!g.moved&&Math.abs(dy)>10){ g.moved=true; dragging=true; }
   if(g.moved){ speed=Math.max(10,Math.min(600,Math.round((g.s+dy*0.8)/5)*5)); $('rng').value=speed; $('spd').textContent=speed; hud(); sendSpeed(); } });
