@@ -340,9 +340,11 @@ if(!room){ room=newRoomCode(); localStorage.setItem('tp-room',room); }
 let ws, wsRetry, controllersN=0;
 // endereço do servidor: o informado nas configurações (útil no app Android) ou o do próprio site
 const isNative=()=>{ try{ return !!window.Capacitor?.isNativePlatform?.(); }catch{ return false; } };
+// true quando a página veio de um servidor (site ou app Android carregando o site); false no app com arquivos embutidos (https://localhost)
+const hostedHere=()=>/^https?:/.test(location.protocol)&&!(isNative()&&location.hostname==='localhost');
 function base(){
   let u=(S.serverUrl||'').trim().replace(/\/+$/,''); if(u&&!/^https?:\/\//i.test(u)) u='https://'+u;
-  if(u) return u; return (!isNative()&&/^https?:/.test(location.protocol))?location.origin:'';
+  if(u) return u; return hostedHere()?location.origin:'';
 }
 function connectWS(){
   clearTimeout(wsRetry); try{ if(ws){ ws.onclose=null; ws.close(); } }catch{}
@@ -685,7 +687,7 @@ document.addEventListener('keydown',e=>{
   syncUI(); applyI18n();
   await loadLib();
   connectWS();
-  if('serviceWorker' in navigator && !isNative() && /^https?:/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(()=>{});
+  if('serviceWorker' in navigator && hostedHere()) navigator.serviceWorker.register('sw.js').catch(()=>{});
 })();
 window.__tp={get cur(){return cur},get pos(){return pos},get W(){return W},onSpeech,command,get S(){return S}};
 </script>
