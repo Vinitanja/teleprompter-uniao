@@ -50,6 +50,18 @@ function addMail({ subject, text, from, date }) {
   return item;
 }
 
+// ---------- Envio de texto por link (push direto ao app) ----------
+const PENDING_FILE = path.join(DATA, 'pending.json');
+const pending = new Map(); // sala -> [{title,text,update,ts}] aguardando o app abrir
+try { for (const [k, v] of Object.entries(JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8')))) pending.set(k, v); } catch {}
+const savePending = () => fs.writeFileSync(PENDING_FILE, JSON.stringify(Object.fromEntries(pending)));
+const rooms = new Map(); // sala -> Set<ws>
+function deliverPush(room, push) {
+  let n = 0;
+  for (const c of rooms.get(room) || []) if (c.role === 'prompter' && c.readyState === 1) { c.send(JSON.stringify({ type: 'push', ...push })); n++; }
+  return n;
+}
+
 // ---------- IMAP (opcional) ----------
 async function pollImap() {
   const { IMAP_HOST, IMAP_USER, IMAP_PASS } = process.env;
@@ -101,6 +113,10 @@ const json = (res, code, obj) => { res.writeHead(code, { 'Content-Type': 'applic
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,X-Token');
+  if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
   try {
     if (url.pathname === '/healthz') return json(res, 200, { ok: true });
     if (url.pathname === '/login') {
@@ -131,6 +147,17 @@ const server = http.createServer(async (req, res) => {
       if (req.method === 'GET') return json(res, 200, inbox[i]);
       if (req.method === 'DELETE') { inbox.splice(i, 1); saveInbox(); return json(res, 200, { ok: true }); }
     }
+    if (url.pathname === '/api/push' && req.method === 'POST') {
+      const f = JSON.parse(await readBody(req) || '{}');
+      const room = String(f.room || '').toUpperCase();
+      if (!/^[A-Z0-9]{4,16}$/.test(room)) return json(res, 400, { error: 'código da sala inválido' });
+      const text = String(f.text || '');
+      if (!text.trim()) return json(res, 400, { error: 'texto vazio' });
+      const push = { title: String(f.title || '').slice(0, 200), text, update: f.update !== false, ts: Date.now() };
+      const n = deliverPush(room, push);
+      if (!n) { const q = pending.get(room) || []; q.push(push); while (q.length > 50) q.shift(); pending.set(room, q); savePending(); }
+      return json(res, 200, { ok: true, delivered: n > 0 });
+    }
     if (url.pathname === '/api/inbound-email' && req.method === 'POST') {
       if (!INBOUND_TOKEN) return json(res, 503, { error: 'defina INBOUND_TOKEN para habilitar o webhook' });
       const tok = url.searchParams.get('token') || req.headers['x-token'];
@@ -149,6 +176,7 @@ const server = http.createServer(async (req, res) => {
     let p = decodeURIComponent(url.pathname);
     if (p === '/') p = '/index.html';
     if (p === '/remote') p = '/remote.html';
+    if (p === '/enviar') p = '/enviar.html';
     const file = path.normalize(path.join(PUBLIC, p));
     if (!file.startsWith(PUBLIC) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); return res.end('404'); }
     res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream' });
@@ -157,19 +185,23 @@ const server = http.createServer(async (req, res) => {
 });
 
 // ---------- WebSocket: pareamento prompter <-> controle ----------
-const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 1024 * 1024, verifyClient: ({ req }) => isAuthed(req) });
-const rooms = new Map(); // room -> Set<ws>
+const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 64 * 1024 * 1024, verifyClient: ({ req }) => isAuthed(req) });
 wss.on('connection', (ws, req) => {
   const u = new URL(req.url, 'http://x');
-  const room = u.searchParams.get('room') || '';
-  if (!/^[A-Za-z0-9]{4,16}$/.test(room)) return ws.close(1008, 'sala inválida');
+  const room = (u.searchParams.get('room') || '').toUpperCase();
+  if (!/^[A-Z0-9]{4,16}$/.test(room)) return ws.close(1008, 'sala inválida');
   ws.role = u.searchParams.get('role') === 'prompter' ? 'prompter' : 'controller';
   if (!rooms.has(room)) rooms.set(room, new Set());
   const set = rooms.get(room); set.add(ws);
   const notify = () => { const has = [...set].some(c => c.role === 'prompter'); set.forEach(c => c.readyState === 1 && c.send(JSON.stringify({ type: 'presence', prompter: has, controllers: [...set].filter(c => c.role === 'controller').length }))); };
   notify();
+  if (ws.role === 'prompter') { // entrega o que foi enviado enquanto o app estava fechado
+    const q = pending.get(room);
+    if (q && q.length) { pending.delete(room); savePending(); for (const p of q) ws.send(JSON.stringify({ type: 'push', ...p })); }
+  }
   ws.on('message', data => {
     let msg; try { msg = JSON.parse(data); } catch { return; }
+    if (!['cmd', 'state', 'text', 'needText'].includes(msg.type)) return;
     msg = { type: msg.type, cmd: msg.cmd, state: msg.state, value: msg.value };
     set.forEach(c => { if (c !== ws && c.role !== ws.role && c.readyState === 1) c.send(JSON.stringify(msg)); });
   });

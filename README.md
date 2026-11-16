@@ -43,3 +43,9 @@ Veja `mobile/README.md` (Capacitor; scaffold sem build testado).
 
 ## Idiomas
 PT, EN, ES, FR, DE, IT (interface e reconhecimento de voz).
+
+## Controle com texto e envio de texto por link
+- `/remote?room=CÓDIGO`: o controle mostra o texto acompanhando a leitura (palavra atual destacada). Arrastar ↕ na área do texto muda a velocidade; um toque dá play/pause.
+- `/enviar?room=CÓDIGO`: página para colar/atualizar o texto e enviar direto ao app (mesmo título = atualiza ao vivo). Se o app estiver fechado, o texto fica na fila e chega quando ele abrir.
+- API: `POST /api/push` com `{room, title, text, update}`.
+- No app Android, informe o endereço do servidor em Configurações → Servidor.

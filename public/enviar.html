@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Enviar texto – TELEPROMPTER UNIÃO</title><link rel="icon" href="icon.svg">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0b0c0f;color:#eee;font-family:system-ui,sans-serif;padding:16px;max-width:760px;margin:auto}
+h1{font-size:1.2rem;margin:0 0 4px}p.s{color:#9aa;margin:0 0 14px;font-size:.9rem}
+label{display:block;font-size:.85rem;color:#9aa;margin:10px 0 4px}
+input[type=text],textarea{width:100%;background:#16181c;border:1px solid #2c3036;color:#fff;border-radius:10px;padding:.7rem;font:inherit}
+textarea{min-height:46vh;line-height:1.5;resize:vertical}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
+button{font:inherit;padding:.9rem 1.2rem;border-radius:12px;border:1px solid #2563eb;background:#2563eb;color:#fff;font-weight:600;cursor:pointer;flex:1}
+#st{margin-top:12px;padding:10px 12px;border-radius:10px;display:none}
+.ok{background:#14532d;display:block!important}.wait{background:#713f12;display:block!important}.err{background:#7f1d1d;display:block!important}
+input[type=checkbox]{width:20px;height:20px}
+</style></head><body>
+<h1>🎬 TELEPROMPTER UNIÃO — enviar texto</h1>
+<p class="s">O texto vai direto para o app. Se já existir uma apresentação com o mesmo título, ela é <b>atualizada</b> na hora.</p>
+<label>Código do app</label><input type="text" id="room" maxlength="16" style="text-transform:uppercase" placeholder="ex.: K7M2QX">
+<label>Título da apresentação</label><input type="text" id="title" placeholder="Ex.: Abertura do evento">
+<label>Texto</label><textarea id="text" placeholder="Cole ou digite o texto aqui…"></textarea>
+<div class="row"><label style="display:flex;gap:8px;align-items:center;margin:0;color:#eee"><input type="checkbox" id="upd" checked> Atualizar se já existir o mesmo título</label></div>
+<div class="row"><button id="send">📤 Enviar para o app</button></div>
+<div id="st"></div>
+<script>
+const $=id=>document.getElementById(id), q=new URLSearchParams(location.search);
+$('room').value=(q.get('room')||localStorage.getItem('tp-send-room')||'').toUpperCase();
+$('title').value=q.get('title')||localStorage.getItem('tp-send-title')||'';
+$('send').onclick=async()=>{
+  const room=$('room').value.trim().toUpperCase(), st=$('st'); st.className='';
+  if(!/^[A-Z0-9]{4,16}$/.test(room)){ st.className='err'; st.textContent='Informe o código do app (aparece em “Controle remoto”).'; return; }
+  if(!$('text').value.trim()){ st.className='err'; st.textContent='Escreva ou cole o texto.'; return; }
+  localStorage.setItem('tp-send-room',room); localStorage.setItem('tp-send-title',$('title').value);
+  $('send').disabled=true;
+  try{
+    const r=await fetch('/api/push',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({room,title:$('title').value,text:$('text').value,update:$('upd').checked})});
+    const d=await r.json(); if(!r.ok) throw new Error(d.error||r.status);
+    st.className=d.delivered?'ok':'wait';
+    st.textContent=d.delivered?'✅ Entregue ao app agora.':'⏳ Guardado. Chega ao app assim que ele for aberto.';
+  }catch(e){ st.className='err'; st.textContent='Erro: '+e.message; }
+  $('send').disabled=false;
+};
+</script></body></html>
