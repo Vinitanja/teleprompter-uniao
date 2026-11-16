@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111111">
+<title>TELEPROMPTER UNIÃO</title>
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+:root{--bg:#fff;--fg:#111;--panel:#f2f3f5;--line:#d5d8dd;--accent:#2563eb;--muted:#667}
+[data-theme=dark]{--bg:#000;--fg:#f4f4f4;--panel:#16181c;--line:#2c3036;--accent:#60a5fa;--muted:#99a}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:system-ui,sans-serif}
+button,select,input,textarea{font:inherit;color:inherit}
+button{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:.55rem .9rem;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+select,input[type=text]{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:.4rem .5rem}
+/* ---------- editor ---------- */
+#editor{max-width:1100px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:12px;min-height:100%}
+header{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+h1{margin:0;font-size:1.3rem}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+textarea#script{width:100%;min-height:36vh;flex:1;resize:vertical;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;line-height:1.5;font-size:1rem}
+.count{color:var(--muted);font-size:.85rem}
+.settings{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+.settings label{display:flex;flex-direction:column;gap:4px;font-size:.85rem;color:var(--muted)}
+.settings label.chk{flex-direction:row;align-items:center;gap:8px;color:var(--fg)}
+.settings input[type=range]{width:100%}
+.settings output{color:var(--fg);font-weight:600}
+dialog{background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:14px;max-width:560px;width:92vw}
+dialog::backdrop{background:#0008}
+.mail{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
+.mail small{color:var(--muted);display:block}
+#qr{background:#fff;padding:8px;display:inline-block;border-radius:8px;margin:6px 0}
+/* ---------- prompter ---------- */
+#prompter{position:fixed;inset:0;background:var(--bg);color:var(--fg);overflow:hidden;display:none;z-index:10}
+#rot{position:absolute;left:50%;top:50%;transform-origin:center}
+#flip{position:absolute;inset:0;overflow:hidden}
+#content{position:absolute;top:0;left:0;right:0;margin:0 auto;will-change:transform;line-height:1.4;word-wrap:break-word}
+#content span.rd{opacity:.35}
+#content{letter-spacing:.01em}
+#guideLine{position:absolute;left:0;right:0;height:0;border-top:2px solid var(--accent);opacity:.75;pointer-events:none}
+#guideHandle{position:absolute;left:6px;width:54px;height:30px;margin-top:-17px;border-radius:15px;background:var(--accent);opacity:.8;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;touch-action:none;cursor:ns-resize;user-select:none;z-index:3}
+#guideHandle.drag{opacity:1;outline:3px solid #fff8}
+#prompter{touch-action:none;user-select:none;-webkit-user-select:none}
+#bar button.on{background:var(--accent);border-color:var(--accent)}
+#bar input[type=range]{width:min(200px,40vw)}
+#bar .sep{flex-basis:100%;height:0}
+#bar{position:absolute;left:0;right:0;bottom:0;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:#000c;color:#fff;display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center;transition:opacity .3s}
+#bar.hide{opacity:0;pointer-events:none}
+#bar button{background:#2a2d33;color:#fff;border-color:#444;min-width:44px}
+#bar .info{font-size:.8rem;opacity:.85;min-width:7ch;text-align:center}
+#prog{position:absolute;left:0;top:0;height:4px;background:var(--accent);width:0}
+#level{position:absolute;right:10px;top:10px;width:10px;height:60px;background:#0006;border-radius:5px;overflow:hidden;display:none}
+#level i{position:absolute;left:0;right:0;bottom:0;background:#22c55e;height:0}
+#toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#000d;color:#fff;padding:8px 14px;border-radius:10px;z-index:30;display:none;max-width:90vw;text-align:center}
+</style>
+</head>
+<body data-theme="dark">
+
+<div id="editor">
+  <header>
+    <h1>🎬 <span data-i="title"></span></h1>
+    <div class="row">
+      <button id="btnImport" data-i="import"></button>
+      <button id="btnInbox" data-i="inbox"></button>
+      <button id="btnRemote" data-i="remote"></button>
+      <button id="btnClear" data-i="clear"></button>
+      <input type="file" id="file" accept=".txt,.md,text/plain" hidden>
+    </div>
+  </header>
+
+  <textarea id="script" spellcheck="false" data-ph="text_ph"></textarea>
+  <div class="count" id="count"></div>
+
+  <div class="settings">
+    <label><span data-i="mode"></span>
+      <select id="mode"><option value="voice" data-i="mode_voice"></option><option value="sound" data-i="mode_sound"></option><option value="auto" data-i="mode_auto"></option></select></label>
+    <label><span><span data-i="speed"></span>: <output id="o_speed"></output> px/s</span><input type="range" id="speed" min="10" max="600" step="5"></label>
+    <label><span><span data-i="fontSize"></span>: <output id="o_fontSize"></output> px</span><input type="range" id="fontSize" min="16" max="240" step="2"></label>
+    <label><span data-i="fontFamily"></span>
+      <select id="fontFamily">
+        <option>Arial</option><option>Verdana</option><option>Trebuchet MS</option><option>Georgia</option><option>Times New Roman</option><option>Courier New</option><option>system-ui</option><option>Comic Sans MS</option><option>Impact</option>
+      </select></label>
+    <label><span><span data-i="width"></span>: <output id="o_width"></output>%</span><input type="range" id="width" min="30" max="100" step="1"></label>
+    <label class="chk"><input type="checkbox" id="bold"> <span data-i="bold"></span></label>
+    <label class="chk"><input type="checkbox" id="italic"> <span data-i="italic"></span></label>
+    <label><span data-i="theme"></span>
+      <select id="theme"><option value="dark" data-i="dark"></option><option value="light" data-i="light"></option></select></label>
+    <label><span data-i="language"></span>
+      <select id="lang"><option value="pt">Português (BR)</option><option value="en">English</option><option value="es">Español</option><option value="fr">Français</option><option value="de">Deutsch</option><option value="it">Italiano</option></select></label>
+    <label class="chk"><input type="checkbox" id="mirror"> <span data-i="mirror"></span></label>
+    <label><span data-i="mirrorDir"></span>
+      <select id="mirrorDir"><option value="h" data-i="horizontal"></option><option value="v" data-i="vertical"></option></select></label>
+    <label><span data-i="orientation"></span>
+      <select id="orientation"><option value="auto" data-i="orient_auto"></option><option value="landscape" data-i="landscape"></option><option value="portrait" data-i="portrait"></option></select></label>
+    <label><span data-i="textColor"></span>
+      <select id="textColor"><option value="auto">Auto</option><option value="#ffffff">⬜ Branco</option><option value="#fde047">🟨 Amarelo</option><option value="#4ade80">🟩 Verde</option><option value="#67e8f9">🟦 Ciano</option><option value="#000000">⬛ Preto</option></select></label>
+    <label class="chk"><input type="checkbox" id="loop"> <span data-i="loop"></span></label>
+    <label class="chk"><input type="checkbox" id="center"> <span data-i="center"></span></label>
+    <label class="chk"><input type="checkbox" id="guide"> <span data-i="guide"></span></label>
+    <label><span><span data-i="guideY"></span>: <output id="o_guideY"></output>%</span><input type="range" id="guideY" min="8" max="92" step="1"></label>
+  </div>
+  <div class="row"><button class="primary" id="btnStartAuto" style="flex:1;padding:.9rem" data-i="startAuto"></button><button class="primary" id="btnStartVoice" style="flex:1;padding:.9rem" data-i="startVoice"></button></div>
+</div>
+
+<div id="prompter">
+  <div id="rot">
+    <div id="flip"><div id="content"></div></div>
+    <div id="guideLine"></div><div id="guideHandle" title="↕">⇅</div>
+    <div id="prog"></div><div id="level"><i></i></div>
+    <div id="bar">
+      <button id="pBack" title="⏮">⏮</button>
+      <button id="pPlay" class="primary">▶</button>
+      <button id="pMode" title="Modo: voz / som / automático">⏩</button>
+      <button id="pSlow">−</button><span class="info" id="pSpeed"></span><button id="pFast">+</button>
+      <input type="range" id="pRange" min="10" max="600" step="5">
+      <span class="sep"></span>
+      <button id="pBold" title="Negrito"><b>B</b></button>
+      <button id="pItalic" title="Itálico"><i>I</i></button>
+      <button id="pFontD">A−</button><button id="pFontU">A+</button>
+      <button id="pMirror" title="Espelhar">🪞</button>
+      <button id="pMirrorDir" title="Eixo do espelho">↔</button>
+      <button id="pGuide" title="Linha-guia">━</button>
+      <button id="pRestart">↺</button>
+      <button id="pExit">✕</button>
+    </div>
+  </div>
+</div>
+
+<dialog id="dlgInbox"><h3 data-i="inbox_title"></h3><p class="count" id="inboxHelp"></p><div id="mails"></div>
+  <div class="row" style="margin-top:12px;justify-content:flex-end"><button id="inboxRefresh">↻</button><button id="inboxClose" data-i="close"></button></div></dialog>
+
+<dialog id="dlgRemote"><h3 data-i="remote"></h3><p data-i="remote_help"></p>
+  <p><b data-i="code"></b>: <code id="roomCode" style="font-size:1.4rem"></code> <button id="newRoom">↻</button></p>
+  <div id="qr"></div><p><a id="remoteLink" target="_blank"></a></p><p class="count" id="remoteStatus"></p>
+  <div class="row" style="justify-content:flex-end"><button id="remoteClose" data-i="close"></button></div></dialog>
+
+<div id="toast"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+<script>
+'use strict';
+/* =============== i18n =============== */
+const T = {
+pt:{title:'TELEPROMPTER UNIÃO',text_ph:'Cole ou digite seu texto aqui (sem limite de caracteres)…',import:'Importar .txt',inbox:'📧 E-mail',remote:'📱 Controle remoto',clear:'Limpar',start:'▶ Iniciar teleprompter',mode:'Modo de rolagem',mode_voice:'Seguir minha voz (reconhecimento de fala)',mode_sound:'Rolar enquanto eu falar (volume do microfone)',mode_auto:'Automático (velocidade fixa)',speed:'Velocidade',fontSize:'Tamanho da fonte',fontFamily:'Família da fonte',width:'Largura do texto',bold:'Negrito',italic:'Itálico',theme:'Tema',dark:'Escuro',light:'Claro',language:'Idioma',mirror:'Espelhar texto',mirrorDir:'Direção do espelho',horizontal:'Horizontal',vertical:'Vertical',orientation:'Orientação',orient_auto:'Padrão',landscape:'Paisagem',portrait:'Retrato',loop:'Repetir em loop',center:'Texto centralizado',guide:'Linha-guia de leitura',guideY:'Posição da linha-guia',startAuto:'⏩ Rolagem automática',startVoice:'🎤 Seguir minha voz',textColor:'Cor do texto',chars:'caracteres',words:'palavras',inbox_title:'Textos recebidos por e-mail',no_mail:'Nenhum e-mail recebido.',load:'Usar',del:'Excluir',close:'Fechar',no_server:'Servidor não encontrado. Abra o app pelo servidor Node para usar e-mail e controle remoto.',remote_help:'Abra o link abaixo (ou leia o QR) em outro aparelho para controlar este teleprompter. Também funciona com controles Bluetooth (teclado/clicker).',code:'Código',empty:'Escreva ou cole um texto primeiro.',noSR:'Reconhecimento de voz não suportado neste navegador — usando modo por volume.',micDenied:'Permissão do microfone negada.',listening:'Ouvindo…',paused:'Pausado',connected:'Controle conectado',waiting:'Aguardando controle…',offline_remote:'Remoto indisponível (sem servidor).',inbox_help:'Envie um e-mail para o endereço configurado no servidor: o assunto vira o título e o corpo vira o texto.'},
+en:{title:'TELEPROMPTER UNIÃO',text_ph:'Paste or type your script here (no character limit)…',import:'Import .txt',inbox:'📧 Email',remote:'📱 Remote control',clear:'Clear',start:'▶ Start teleprompter',mode:'Scroll mode',mode_voice:'Follow my voice (speech recognition)',mode_sound:'Scroll while I speak (mic volume)',mode_auto:'Automatic (fixed speed)',speed:'Speed',fontSize:'Font size',fontFamily:'Font family',width:'Text width',bold:'Bold',italic:'Italic',theme:'Theme',dark:'Dark',light:'Light',language:'Language',mirror:'Mirror text',mirrorDir:'Mirror direction',horizontal:'Horizontal',vertical:'Vertical',orientation:'Orientation',orient_auto:'Default',landscape:'Landscape',portrait:'Portrait',loop:'Loop',center:'Center text',guide:'Reading guide line',guideY:'Guide line position',startAuto:'⏩ Auto scroll',startVoice:'🎤 Follow my voice',textColor:'Text color',chars:'characters',words:'words',inbox_title:'Scripts received by email',no_mail:'No emails received.',load:'Use',del:'Delete',close:'Close',no_server:'Server not found. Open the app through the Node server to use email and remote control.',remote_help:'Open the link below (or scan the QR) on another device to control this teleprompter. Bluetooth keyboards/clickers also work.',code:'Code',empty:'Write or paste a script first.',noSR:'Speech recognition not supported in this browser — using volume mode.',micDenied:'Microphone permission denied.',listening:'Listening…',paused:'Paused',connected:'Remote connected',waiting:'Waiting for remote…',offline_remote:'Remote unavailable (no server).',inbox_help:'Send an email to the address configured on the server: the subject becomes the title and the body the script.'},
+es:{title:'TELEPROMPTER UNIÃO',text_ph:'Pega o escribe tu texto aquí (sin límite de caracteres)…',import:'Importar .txt',inbox:'📧 Correo',remote:'📱 Control remoto',clear:'Borrar',start:'▶ Iniciar teleprompter',mode:'Modo de desplazamiento',mode_voice:'Seguir mi voz (reconocimiento de voz)',mode_sound:'Desplazar mientras hablo (volumen del micrófono)',mode_auto:'Automático (velocidad fija)',speed:'Velocidad',fontSize:'Tamaño de fuente',fontFamily:'Familia de fuente',width:'Ancho del texto',bold:'Negrita',italic:'Cursiva',theme:'Tema',dark:'Oscuro',light:'Claro',language:'Idioma',mirror:'Espejar texto',mirrorDir:'Dirección del espejo',horizontal:'Horizontal',vertical:'Vertical',orientation:'Orientación',orient_auto:'Predeterminada',landscape:'Horizontal (paisaje)',portrait:'Vertical (retrato)',loop:'Repetir en bucle',center:'Texto centrado',guide:'Línea guía de lectura',guideY:'Posición de la línea guía',startAuto:'⏩ Desplazamiento automático',startVoice:'🎤 Seguir mi voz',textColor:'Color del texto',chars:'caracteres',words:'palabras',inbox_title:'Textos recibidos por correo',no_mail:'Ningún correo recibido.',load:'Usar',del:'Eliminar',close:'Cerrar',no_server:'Servidor no encontrado. Abre la app desde el servidor Node para usar correo y control remoto.',remote_help:'Abre el enlace (o escanea el QR) en otro dispositivo para controlar este teleprompter. También funcionan teclados/controles Bluetooth.',code:'Código',empty:'Escribe o pega un texto primero.',noSR:'Reconocimiento de voz no compatible — usando modo por volumen.',micDenied:'Permiso de micrófono denegado.',listening:'Escuchando…',paused:'En pausa',connected:'Control conectado',waiting:'Esperando control…',offline_remote:'Remoto no disponible (sin servidor).',inbox_help:'Envía un correo a la dirección configurada en el servidor: el asunto es el título y el cuerpo el texto.'}
+,fr:{title:'TELEPROMPTER UNIÃO',text_ph:'Collez ou saisissez votre texte ici (sans limite)…',import:'Importer .txt',inbox:'📧 E-mail',remote:'📱 Télécommande',clear:'Effacer',start:'▶ Démarrer',mode:'Mode de défilement',mode_voice:'Suivre ma voix (reconnaissance vocale)',mode_sound:'Défiler pendant que je parle (volume du micro)',mode_auto:'Automatique (vitesse fixe)',speed:'Vitesse',fontSize:'Taille de police',fontFamily:'Famille de police',width:'Largeur du texte',bold:'Gras',italic:'Italique',theme:'Thème',dark:'Sombre',light:'Clair',language:'Langue',mirror:'Miroir',mirrorDir:'Direction du miroir',horizontal:'Horizontal',vertical:'Vertical',orientation:'Orientation',orient_auto:'Par défaut',landscape:'Paysage',portrait:'Portrait',loop:'Boucle',center:'Texte centré',guide:'Ligne de lecture',textColor:'Couleur du texte',chars:'caractères',words:'mots',inbox_title:'Textes reçus par e-mail',no_mail:'Aucun e-mail reçu.',load:'Utiliser',del:'Supprimer',close:'Fermer',code:'Code',empty:'Saisissez un texte d’abord.',micDenied:'Accès au micro refusé.'},
+de:{title:'TELEPROMPTER UNIÃO',text_ph:'Text hier einfügen oder eingeben (ohne Zeichenlimit)…',import:'.txt importieren',inbox:'📧 E-Mail',remote:'📱 Fernsteuerung',clear:'Leeren',start:'▶ Starten',mode:'Scroll-Modus',mode_voice:'Meiner Stimme folgen (Spracherkennung)',mode_sound:'Scrollen, solange ich spreche (Mikrofonpegel)',mode_auto:'Automatisch (feste Geschwindigkeit)',speed:'Geschwindigkeit',fontSize:'Schriftgröße',fontFamily:'Schriftart',width:'Textbreite',bold:'Fett',italic:'Kursiv',theme:'Design',dark:'Dunkel',light:'Hell',language:'Sprache',mirror:'Text spiegeln',mirrorDir:'Spiegelrichtung',horizontal:'Horizontal',vertical:'Vertikal',orientation:'Ausrichtung',orient_auto:'Standard',landscape:'Querformat',portrait:'Hochformat',loop:'Endlosschleife',center:'Text zentrieren',guide:'Leselinie',textColor:'Textfarbe',chars:'Zeichen',words:'Wörter',inbox_title:'Per E-Mail empfangene Texte',no_mail:'Keine E-Mails empfangen.',load:'Verwenden',del:'Löschen',close:'Schließen',code:'Code',empty:'Bitte zuerst einen Text eingeben.',micDenied:'Mikrofonzugriff verweigert.'},
+it:{title:'TELEPROMPTER UNIÃO',text_ph:'Incolla o scrivi qui il testo (senza limiti)…',import:'Importa .txt',inbox:'📧 Email',remote:'📱 Telecomando',clear:'Cancella',start:'▶ Avvia',mode:'Modalità di scorrimento',mode_voice:'Segui la mia voce (riconoscimento vocale)',mode_sound:'Scorri mentre parlo (volume microfono)',mode_auto:'Automatico (velocità fissa)',speed:'Velocità',fontSize:'Dimensione carattere',fontFamily:'Famiglia di caratteri',width:'Larghezza testo',bold:'Grassetto',italic:'Corsivo',theme:'Tema',dark:'Scuro',light:'Chiaro',language:'Lingua',mirror:'Specchia testo',mirrorDir:'Direzione specchio',horizontal:'Orizzontale',vertical:'Verticale',orientation:'Orientamento',orient_auto:'Predefinito',landscape:'Orizzontale (paesaggio)',portrait:'Verticale (ritratto)',loop:'Ripeti in loop',center:'Testo centrato',guide:'Linea di lettura',textColor:'Colore del testo',chars:'caratteri',words:'parole',inbox_title:'Testi ricevuti via email',no_mail:'Nessuna email ricevuta.',load:'Usa',del:'Elimina',close:'Chiudi',code:'Codice',empty:'Scrivi prima un testo.',micDenied:'Accesso al microfono negato.'}
+};
+const SPEECH_LANG = {pt:'pt-BR',en:'en-US',es:'es-ES',fr:'fr-FR',de:'de-DE',it:'it-IT'};
+const $ = id => document.getElementById(id);
+const t = k => (T[S.lang]||{})[k] || T.en[k] || T.pt[k] || k;
+
+/* =============== estado / persistência =============== */
+const DEF = {lang:(['en','es','fr','de','it'].find(l=>navigator.language?.startsWith(l)))||'pt',theme:'dark',fontSize:56,fontFamily:'Arial',bold:false,italic:false,width:90,speed:60,mirror:false,mirrorDir:'h',orientation:'auto',loop:false,center:false,guide:true,mode:'voice',textColor:'auto',guideY:40};
+let S = {...DEF};
+try { Object.assign(S, JSON.parse(localStorage.getItem('tp-settings')||'{}')); } catch {}
+const saveS = () => { try { localStorage.setItem('tp-settings', JSON.stringify(S)); } catch {} };
+
+// Texto em IndexedDB (sem o limite de ~5 MB do localStorage)
+const idb = {
+  db:null,
+  open(){return this.db||(this.db=new Promise((res,rej)=>{const r=indexedDB.open('tp',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);}));},
+  async get(k){try{const d=await this.open();return await new Promise(r=>{const q=d.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>r(q.result);q.onerror=()=>r(undefined);});}catch{return undefined}},
+  async set(k,v){try{const d=await this.open();d.transaction('kv','readwrite').objectStore('kv').put(v,k);}catch{}}
+};
+
+/* =============== UI do editor =============== */
+const BIND = ['mode','speed','fontSize','fontFamily','width','bold','italic','theme','lang','mirror','mirrorDir','orientation','loop','center','guide','guideY','textColor'];
+function applyI18n(){
+  document.documentElement.lang = SPEECH_LANG[S.lang];
+  document.querySelectorAll('[data-i]').forEach(e=>e.textContent=t(e.dataset.i));
+  $('script').placeholder = t('text_ph');
+  $('inboxHelp').textContent = t('inbox_help');
+  updateCount();
+}
+function syncUI(){
+  document.body.dataset.theme = S.theme;
+  for (const k of BIND){ const el=$(k); if(el.type==='checkbox') el.checked=S[k]; else el.value=S[k]; const o=$('o_'+k); if(o) o.textContent=S[k]; }
+}
+for (const k of BIND){
+  $(k).addEventListener('input',()=>{ const el=$(k); S[k]=el.type==='checkbox'?el.checked:(el.type==='range'?+el.value:el.value); saveS(); onSettingChange(k); syncUI(); if(k==='lang')applyI18n(); });
+}
+function updateCount(){
+  const v=$('script').value; const w=(v.trim().match(/\S+/g)||[]).length;
+  $('count').textContent = `${v.length.toLocaleString()} ${t('chars')} · ${w.toLocaleString()} ${t('words')}`;
+}
+let saveTimer;
+$('script').addEventListener('input',()=>{ updateCount(); clearTimeout(saveTimer); saveTimer=setTimeout(()=>idb.set('script',$('script').value),400); });
+$('btnClear').onclick=()=>{ $('script').value=''; updateCount(); idb.set('script',''); };
+$('btnImport').onclick=()=>$('file').click();
+$('file').onchange=async e=>{ const f=e.target.files[0]; if(!f)return; $('script').value=await f.text(); updateCount(); idb.set('script',$('script').value); e.target.value=''; };
+let toastT; function toast(m,ms=3500){const e=$('toast');e.textContent=m;e.style.display='block';clearTimeout(toastT);toastT=setTimeout(()=>e.style.display='none',ms);}
+
+/* =============== E-mail =============== */
+async function loadInbox(){
+  const box=$('mails'); box.textContent='…';
+  try{
+    const r=await fetch('/api/inbox'); if(!r.ok)throw 0; const list=await r.json();
+    box.innerHTML=''; if(!list.length){box.textContent=t('no_mail');return;}
+    for(const m of list){
+      const d=document.createElement('div'); d.className='mail';
+      const info=document.createElement('div'); const b=document.createElement('b'); b.textContent=m.subject;
+      const s=document.createElement('small'); s.textContent=`${m.from||''} · ${new Date(m.date).toLocaleString()} · ${m.size.toLocaleString()} ${t('chars')}`;
+      const p=document.createElement('small'); p.textContent=m.preview; info.append(b,s,p);
+      const act=document.createElement('div'); act.className='row';
+      const use=document.createElement('button'); use.textContent=t('load'); use.className='primary';
+      use.onclick=async()=>{ const x=await (await fetch('/api/inbox/'+m.id)).json(); $('script').value=x.text; updateCount(); idb.set('script',x.text); $('dlgInbox').close(); };
+      const del=document.createElement('button'); del.textContent='🗑'; del.title=t('del');
+      del.onclick=async()=>{ await fetch('/api/inbox/'+m.id,{method:'DELETE'}); loadInbox(); };
+      act.append(use,del); d.append(info,act); box.append(d);
+    }
+  }catch{ box.textContent=t('no_server'); }
+}
+$('btnInbox').onclick=()=>{ $('dlgInbox').showModal(); loadInbox(); };
+$('inboxRefresh').onclick=loadInbox; $('inboxClose').onclick=()=>$('dlgInbox').close();
+
+/* =============== Controle remoto (WebSocket) =============== */
+let room = localStorage.getItem('tp-room') || '';
+const newRoomCode=()=>{ const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; return Array.from(crypto.getRandomValues(new Uint8Array(6)),n=>a[n%a.length]).join(''); };
+if(!room){ room=newRoomCode(); localStorage.setItem('tp-room',room); }
+let ws, wsRetry;
+function connectWS(){
+  if(!/^https?:/.test(location.protocol)) return;
+  try{ ws&&ws.close(); }catch{}
+  clearTimeout(wsRetry);
+  ws=new WebSocket(`${location.protocol==='https:'?'wss':'ws'}://${location.host}/ws?room=${room}&role=prompter`);
+  ws.onmessage=e=>{ let m; try{m=JSON.parse(e.data);}catch{return;}
+    if(m.type==='cmd') command(m.cmd,m.value);
+    if(m.type==='presence'){ $('remoteStatus').textContent = m.controllers>0?'✅ '+t('connected'):t('waiting'); if(m.controllers>0) sendState(true); } };
+  ws.onclose=()=>{ wsRetry=setTimeout(connectWS,3000); };
+  ws.onerror=()=>{};
+}
+let lastSent=0;
+function sendState(force){
+  if(!ws||ws.readyState!==1)return; const n=performance.now(); if(!force&&n-lastSent<250)return; lastSent=n;
+  ws.send(JSON.stringify({type:'state',state:{playing:running,speed:S.speed,fontSize:S.fontSize,progress:maxPos>0?pos/maxPos:0,mode:S.mode,mirror:S.mirror,theme:S.theme,loop:S.loop,open:prompterOpen}}));
+}
+function showRemote(){
+  $('roomCode').textContent=room;
+  const url=`${location.origin}/remote?room=${room}`;
+  const a=$('remoteLink'); a.href=url; a.textContent=url;
+  const q=$('qr'); q.innerHTML=''; if(window.QRCode){ new QRCode(q,{text:url,width:150,height:150}); } else q.style.display='none';
+  if(window.QRCode) q.style.display='inline-block';
+  if(!/^https?:/.test(location.protocol)) $('remoteStatus').textContent=t('offline_remote');
+  $('dlgRemote').showModal();
+}
+$('btnRemote').onclick=showRemote; $('remoteClose').onclick=()=>$('dlgRemote').close();
+$('newRoom').onclick=()=>{ room=newRoomCode(); localStorage.setItem('tp-room',room); connectWS(); showRemote(); $('dlgRemote').close(); showRemote(); };
+
+/* =============== Teleprompter =============== */
+const P=$('prompter'), ROT=$('rot'), MIR=$('flip'), CONT=$('content'), GUIDE=$('guideLine'), HANDLE=$('guideHandle');
+let prompterOpen=false, running=false, pos=0, maxPos=0, lineY=0, W=[], spans=[], tops=[], topsDirty=true, cur=0, marked=0, targetPos=0, vel=0, lastT=0, endHold=0;
+let rotated=false, vw=0, vh=0, holding=false;
+
+const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^\p{L}\p{N}]/gu,'');
+
+function buildText(){
+  const text=$('script').value; CONT.textContent=''; W=[]; spans=[]; marked=0; cur=0;
+  const lines=text.replace(/\r\n?/g,'\n').split('\n');
+  const frag=document.createDocumentFragment();
+  for(const line of lines){
+    for(const tok of line.split(/[ \t]+/)){ if(!tok)continue;
+      const sp=document.createElement('span'); sp.textContent=tok+' '; frag.appendChild(sp); spans.push(sp); W.push(norm(tok)); }
+    frag.appendChild(document.createElement('br'));
+  }
+  CONT.appendChild(frag); topsDirty=true;
+}
+
+function layout(){
+  vw=window.innerWidth; vh=window.innerHeight;
+  const want=S.orientation; const isLand=vw>=vh;
+  rotated = (want==='landscape'&&!isLand)||(want==='portrait'&&isLand);
+  const w=rotated?vh:vw, h=rotated?vw:vh;
+  ROT.style.width=w+'px'; ROT.style.height=h+'px';
+  ROT.style.transform=`translate(-50%,-50%)${rotated?' rotate(90deg)':''}`;
+  lineY=Math.round(h*Math.min(92,Math.max(8,S.guideY))/100);
+  Object.assign(CONT.style,{fontSize:S.fontSize+'px',fontFamily:S.fontFamily,fontWeight:S.bold?'700':'400',fontStyle:S.italic?'italic':'normal',color:S.textColor==='auto'?'':S.textColor,width:S.width+'%',textAlign:S.center?'center':'left',paddingTop:lineY+'px',paddingBottom:(h-lineY)+'px'});
+  GUIDE.style.top=(lineY-4)+'px'; GUIDE.style.display=S.guide?'block':'none'; HANDLE.style.top=(lineY-4)+'px'; HANDLE.style.display=S.guide?'flex':'none';
+  MIR.style.transform=S.mirror?(S.mirrorDir==='v'?'scaleY(-1)':'scaleX(-1)'):'none';
+  topsDirty=true; measure();
+}
+function measure(){
+  const h=parseFloat(ROT.style.height)||vh;
+  maxPos=Math.max(0,CONT.scrollHeight-h);
+  if(topsDirty){ tops=spans.map(s=>s.offsetTop); topsDirty=false; }
+  pos=Math.min(pos,maxPos);
+}
+window.addEventListener('resize',()=>{ if(prompterOpen) layout(); });
+
+async function tryOrientationLock(){
+  try{
+    if(S.orientation==='auto'){ screen.orientation?.unlock?.(); return; }
+    if(!document.fullscreenElement) await P.requestFullscreen?.();
+    await screen.orientation.lock(S.orientation);
+  }catch{} // sem suporte: usa rotação por CSS
+}
+function onSettingChange(k){ if(prompterOpen) { layout(); } }
+
+function setPos(p){ pos=Math.max(0,Math.min(maxPos,p)); render(); }
+function render(){
+  CONT.style.transform=`translate3d(0,${-pos.toFixed(2)}px,0)`;
+  $('prog').style.width=(maxPos>0?pos/maxPos*100:0)+'%';
+  sendState();
+}
+function wordAtPos(p){ // índice da primeira palavra cuja posição >= linha-guia
+  const y=p+lineY; let lo=0,hi=tops.length-1;
+  while(lo<hi){ const m=(lo+hi)>>1; if(tops[m]<y-1)lo=m+1; else hi=m; }
+  return lo;
+}
+function markRead(){
+  if(cur>marked){ for(let i=marked;i<cur&&i<spans.length;i++)spans[i].classList.add('rd'); }
+  else if(cur<marked){ for(let i=cur;i<marked&&i<spans.length;i++)spans[i].classList.remove('rd'); }
+  marked=cur;
+}
+
+/* ---- loop de animação ---- */
+function tick(ts){
+  if(!prompterOpen)return; requestAnimationFrame(tick);
+  const dt=Math.min(0.1,(ts-lastT)/1000||0); lastT=ts;
+  if(topsDirty) measure();
+  if(running&&!holding){
+    if(S.mode==='auto'){ pos+=S.speed*dt; }
+    else if(S.mode==='sound'){ const goal=(level>SOUND_THR)?S.speed:0; vel+=(goal-vel)*Math.min(1,dt*6); pos+=vel*dt; }
+    else { // voz: acompanha a palavra reconhecida
+      if(tops.length&&cur<tops.length){ targetPos=Math.max(0,tops[cur]-lineY); }
+      const d=targetPos-pos; pos+=Math.sign(d)*Math.min(Math.abs(d),Math.max(Math.abs(d)*dt*4,Math.abs(d)>1?30*dt:0));
+      markRead();
+    }
+    if(pos>=maxPos-0.5 && (S.mode!=='voice'||cur>=W.length-1)){
+      pos=maxPos;
+      if(S.loop){ endHold+=dt; if(endHold>1.5){ endHold=0; pos=0; cur=0; targetPos=0; vel=0; markRead(); } }
+      else if(S.mode!=='voice'){ setRunning(false); }
+    } else endHold=0;
+    pos=Math.max(0,Math.min(maxPos,pos));
+  }
+  render();
+  if(micOn) $('level').firstElementChild.style.height=Math.min(100,level*400)+'%';
+}
+
+/* ---- microfone: nível de volume ---- */
+let audioCtx, analyser, micStream, micBuf, level=0, micOn=false; const SOUND_THR=0.02;
+async function startLevelMic(){
+  if(micOn)return true;
+  try{
+    micStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
+    audioCtx=new (window.AudioContext||window.webkitAudioContext)(); const src=audioCtx.createMediaStreamSource(micStream);
+    analyser=audioCtx.createAnalyser(); analyser.fftSize=1024; src.connect(analyser); micBuf=new Float32Array(analyser.fftSize);
+    micOn=true; $('level').style.display='block'; levelLoop(); return true;
+  }catch{ toast(t('micDenied')); return false; }
+}
+function levelLoop(){
+  if(!micOn)return; analyser.getFloatTimeDomainData(micBuf);
+  let s=0; for(let i=0;i<micBuf.length;i++)s+=micBuf[i]*micBuf[i]; const rms=Math.sqrt(s/micBuf.length);
+  level=level*0.6+rms*0.4; setTimeout(levelLoop,40);
+}
+function stopLevelMic(){ micOn=false; try{micStream?.getTracks().forEach(t=>t.stop());if(audioCtx&&audioCtx.state!=='closed')audioCtx.close();}catch{} $('level').style.display='none'; level=0; }
+
+/* ---- microfone: reconhecimento de fala ---- */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition; let rec, recWanted=false, nativeL=[];
+const nativeSR=()=>{ try{ return window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins.SpeechRecognition : null; }catch{ return null; } };
+async function startNativeRec(P){
+  const perm=await P.requestPermissions().catch(()=>({})); if(perm.speechRecognition==='denied'){ toast(t('micDenied')); setRunning(false); return; }
+  recWanted=true;
+  const begin=()=>P.start({language:SPEECH_LANG[S.lang],partialResults:true,popup:false,maxResults:1}).catch(()=>{});
+  nativeL=[ await P.addListener('partialResults',d=>{ if(d.matches&&d.matches[0]) onSpeech(d.matches[0]); }),
+            await P.addListener('listeningState',d=>{ if(d.status==='stopped'&&recWanted&&running) setTimeout(begin,200); }) ];
+  begin();
+}
+function startRec(){
+  const NP=nativeSR(); if(NP){ startNativeRec(NP); return; }
+  if(!SR){ toast(t('noSR')); S.mode='sound'; syncUI(); return startLevelMic(); }
+  recWanted=true;
+  rec=new SR(); rec.lang=SPEECH_LANG[S.lang]; rec.continuous=true; rec.interimResults=true; rec.maxAlternatives=1;
+  rec.onresult=e=>{ const r=e.results[e.results.length-1]; onSpeech(r[0].transcript); };
+  rec.onerror=e=>{ if(e.error==='not-allowed'||e.error==='service-not-allowed'){ recWanted=false; toast(t('micDenied')); setRunning(false);} };
+  rec.onend=()=>{ if(recWanted&&running) setTimeout(()=>{ try{rec.start();}catch{} },150); };
+  try{ rec.start(); }catch{}
+  $('level').style.display='none';
+}
+function stopRec(){ recWanted=false; try{rec?.abort();}catch{} const NP=nativeSR(); if(NP){ NP.stop().catch(()=>{}); nativeL.forEach(l=>l.remove&&l.remove()); nativeL=[]; } }
+
+function like(a,b){
+  if(!a||!b)return false; if(a===b)return true; if(a.length<4||b.length<4)return false;
+  if(a.startsWith(b)||b.startsWith(a))return Math.min(a.length,b.length)>=4;
+  if(Math.abs(a.length-b.length)>1)return false;
+  let i=0; while(i<a.length&&a[i]===b[i])i++; // distância de edição <= 1
+  if(a.length===b.length) return a.slice(i+1)===b.slice(i+1);
+  const [l,s]=a.length>b.length?[a,b]:[b,a]; return l.slice(i+1)===s.slice(i);
+}
+function onSpeech(transcript){
+  const words=transcript.split(/\s+/).map(norm).filter(Boolean); if(!words.length)return;
+  const tail=words.slice(-4); let best=-1,bs=0;
+  const from=Math.max(0,cur-3), to=Math.min(W.length-1,cur+40);
+  for(let j=from;j<=to;j++){
+    if(!like(tail[tail.length-1],W[j]))continue;
+    let s=1.5;
+    for(let k=1;k<tail.length&&j-k>=0;k++) if(like(tail[tail.length-1-k],W[j-k])) s+=1;
+    s-=Math.max(0,j-cur)*0.01;
+    if(j-cur>8&&s<2.4)continue;            // saltos longos exigem 2+ palavras batendo
+    if(s>bs||(s===bs&&best>=0&&Math.abs(j-cur)<Math.abs(best-cur))){bs=s;best=j;}
+  }
+  if(best>=0&&best+1!==cur){ cur=best+1; }
+}
+
+/* ---- controle de execução ---- */
+async function setRunning(on){
+  if(on&&!running){
+    if(S.mode==='voice'){ if(SR||nativeSR()) startRec(); else { S.mode='sound'; syncUI(); toast(t('noSR')); if(!await startLevelMic()) return; } }
+    else if(S.mode==='sound'){ if(!await startLevelMic()) return; }
+    running=true; vel=0;
+    if(S.mode==='voice'){ cur=wordAtPos(pos); markRead(); }
+  } else if(!on){ running=false; stopRec(); if(S.mode!=='sound') stopLevelMic(); }
+  $('pPlay').textContent=running?'⏸':'▶'; showBar(); sendState(true);
+}
+function showSpeed(){
+  $('pMode').textContent={voice:'🎤',sound:'🔊',auto:'⏩'}[S.mode]||'⏩';
+  $('pSpeed').textContent=S.mode==='voice'?'—':S.speed+' px/s';
+  $('pRange').value=S.speed; $('pRange').style.opacity=S.mode==='voice'?.4:1;
+  const on=(id,v)=>$(id).classList.toggle('on',!!v);
+  on('pBold',S.bold); on('pItalic',S.italic); on('pMirror',S.mirror); on('pGuide',S.guide);
+  $('pMirrorDir').textContent=S.mirrorDir==='v'?'↕':'↔';
+}
+function open_(){
+  const txt=$('script').value; if(!txt.trim()){ toast(t('empty')); return; }
+  buildText(); prompterOpen=true; pos=0; targetPos=0; P.style.display='block'; document.body.style.overflow='hidden';
+  layout(); render(); showSpeed(); showBar(); lastT=performance.now(); requestAnimationFrame(tick);
+  tryOrientationLock().then(()=>{ if(prompterOpen) layout(); });
+  navigator.wakeLock?.request('screen').then(l=>wake=l).catch(()=>{});
+  sendState(true);
+}
+let wake;
+function close_(){
+  setRunning(false); stopLevelMic(); prompterOpen=false; P.style.display='none'; document.body.style.overflow='';
+  try{wake?.release();}catch{} try{screen.orientation?.unlock?.();}catch{} if(document.fullscreenElement) document.exitFullscreen?.().catch(()=>{});
+  sendState(true);
+}
+let barT; function showBar(){ $('bar').classList.remove('hide'); clearTimeout(barT); barT=setTimeout(()=>{ if(running)$('bar').classList.add('hide'); },3500); }
+
+function command(cmd,val){
+  const step=()=>Math.max(80,vh*0.3);
+  switch(cmd){
+    case 'open': if(!prompterOpen)open_(); break;
+    case 'toggle': if(!prompterOpen)open_(); setRunning(!running); break;
+    case 'play': setRunning(true); break;
+    case 'pause': setRunning(false); break;
+    case 'faster': S.speed=Math.min(600,S.speed+10); break;
+    case 'slower': S.speed=Math.max(10,S.speed-10); break;
+    case 'fontUp': S.fontSize=Math.min(240,S.fontSize+4); layoutKeep(); break;
+    case 'fontDown': S.fontSize=Math.max(16,S.fontSize-4); layoutKeep(); break;
+    case 'back': jump(-step()); break;
+    case 'forward': jump(step()); break;
+    case 'restart': pos=0; cur=0; targetPos=0; markRead(); render(); break;
+    case 'mirror': S.mirror=!S.mirror; layout(); break;
+    case 'mirrorDir': S.mirrorDir=S.mirrorDir==='v'?'h':'v'; layout(); break;
+    case 'bold': S.bold=!S.bold; layoutKeep(); break;
+    case 'italic': S.italic=!S.italic; layoutKeep(); break;
+    case 'guide': S.guide=!S.guide; layout(); break;
+    case 'speed': S.speed=Math.max(10,Math.min(600,+val||S.speed)); break;
+    case 'mode': { const was=running; setRunning(false); stopLevelMic(); S.mode={voice:'sound',sound:'auto',auto:'voice'}[S.mode]||'auto'; if(S.mode!=='voice'){ cur=0; markRead(); } else { cur=wordAtPos(pos); } if(was) setRunning(true); break; }
+    case 'theme': S.theme=S.theme==='dark'?'light':'dark'; break;
+    case 'loop': S.loop=!S.loop; break;
+    case 'close': close_(); break;
+  }
+  saveS(); syncUI(); showSpeed(); showBar(); sendState(true);
+}
+function layoutKeep(){ const ratio=maxPos>0?pos/maxPos:0; layout(); pos=ratio*maxPos; if(S.mode==='voice')targetPos=pos; render(); }
+function jump(d){
+  pos=Math.max(0,Math.min(maxPos,pos+d)); targetPos=pos;
+  if(S.mode==='voice'){ cur=wordAtPos(pos); markRead(); } render();
+}
+
+const startWith=m=>{ S.mode=m; saveS(); syncUI(); open_(); if(prompterOpen) setRunning(true); };
+$('btnStartAuto').onclick=()=>startWith('auto'); $('btnStartVoice').onclick=()=>startWith('voice');
+$('pMode').onclick=()=>command('mode'); $('pBold').onclick=()=>command('bold'); $('pItalic').onclick=()=>command('italic');
+$('pMirror').onclick=()=>command('mirror'); $('pMirrorDir').onclick=()=>command('mirrorDir'); $('pGuide').onclick=()=>command('guide');
+$('pRange').oninput=e=>command('speed',e.target.value);
+$('pPlay').onclick=()=>command('toggle'); $('pBack').onclick=()=>command('back');
+$('pSlow').onclick=()=>command('slower'); $('pFast').onclick=()=>command('faster');
+$('pFontD').onclick=()=>command('fontDown'); $('pFontU').onclick=()=>command('fontUp');
+$('pRestart').onclick=()=>command('restart'); $('pExit').onclick=()=>command('close');
+// deslocamento do dedo na tela -> eixo vertical do texto (considera rotação e espelho vertical)
+const localDY=(dx,dy)=>{ let d=rotated?-dx:dy; if(S.mirror&&S.mirrorDir==='v') d=-d; return d; };
+let drag=null;
+P.addEventListener('pointerdown',e=>{
+  showBar(); if(e.target.closest('#bar,#guideHandle'))return;
+  drag={lx:e.clientX,ly:e.clientY,sx:e.clientX,sy:e.clientY,moved:false}; holding=true;
+  try{P.setPointerCapture(e.pointerId);}catch{}
+});
+P.addEventListener('pointermove',e=>{
+  showBar(); if(!drag)return;
+  if(!drag.moved&&Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)>10) drag.moved=true;
+  if(drag.moved){ jump(-localDY(e.clientX-drag.lx,e.clientY-drag.ly)); }
+  drag.lx=e.clientX; drag.ly=e.clientY;
+});
+const endDrag=e=>{ if(!drag)return; const tap=!drag.moved&&e.type==='pointerup'; drag=null; holding=false; if(tap) command('toggle'); };
+P.addEventListener('pointerup',endDrag); P.addEventListener('pointercancel',endDrag);
+P.addEventListener('wheel',e=>{ e.preventDefault(); jump(localDY(0,e.deltaY)); },{passive:false});
+
+// Linha-guia arrastável: coloque onde quiser
+let gdrag=null;
+HANDLE.addEventListener('pointerdown',e=>{ e.stopPropagation(); gdrag={x:e.clientX,y:e.clientY,start:lineY}; HANDLE.classList.add('drag'); HANDLE.setPointerCapture(e.pointerId); showBar(); });
+HANDLE.addEventListener('pointermove',e=>{
+  if(!gdrag)return; const h=parseFloat(ROT.style.height)||vh;
+  const ny=Math.max(h*.08,Math.min(h*.92,gdrag.start+(rotated?-(e.clientX-gdrag.x):(e.clientY-gdrag.y))));
+  GUIDE.style.top=(ny-4)+'px'; HANDLE.style.top=(ny-4)+'px'; gdrag.ny=ny;
+});
+const endG=()=>{ if(!gdrag)return; const g=gdrag; gdrag=null; HANDLE.classList.remove('drag');
+  if(g.ny==null)return; const h=parseFloat(ROT.style.height)||vh; const old=lineY;
+  S.guideY=Math.round(g.ny/h*100); saveS(); syncUI(); layout(); pos=Math.max(0,Math.min(maxPos,pos+(lineY-old))); if(S.mode==='voice')targetPos=Math.max(0,(tops[cur]||0)-lineY); render(); };
+HANDLE.addEventListener('pointerup',endG); HANDLE.addEventListener('pointercancel',endG);
+
+// Teclado (inclui controles/clickers Bluetooth que emulam teclado)
+document.addEventListener('keydown',e=>{
+  if(!prompterOpen||['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)&&e.key!=='Escape')return;
+  const map={' ':'toggle',Enter:'toggle','.':'toggle',b:'toggle',B:'toggle',MediaPlayPause:'toggle',ArrowUp:'faster',ArrowDown:'slower',PageDown:'forward',ArrowRight:'forward',MediaTrackNext:'forward',PageUp:'back',ArrowLeft:'back',MediaTrackPrevious:'back','+':'fontUp','=':'fontUp','-':'fontDown',m:'mirror',r:'restart',Escape:'close'};
+  const c=map[e.key]; if(c){ e.preventDefault(); command(c); }
+});
+
+/* =============== init =============== */
+(async()=>{
+  syncUI(); applyI18n();
+  $('script').value=(await idb.get('script'))||''; updateCount();
+  connectWS();
+  if('serviceWorker' in navigator && /^https?:/.test(location.protocol)) navigator.serviceWorker.register('sw.js').catch(()=>{});
+})();
+window.__tp={get cur(){return cur},get pos(){return pos},get W(){return W},onSpeech,command,get S(){return S}};
+</script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">TELEPROMPTER UNIÃO</string>
+    <string name="title_activity_main">TELEPROMPTER UNIÃO</string>
+    <string name="package_name">app.teleprompter</string>
+    <string name="custom_url_scheme">app.teleprompter</string>
+</resources>

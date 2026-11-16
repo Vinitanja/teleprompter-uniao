@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Controle – TELEPROMPTER UNIÃO</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0b0c0f;color:#eee;font-family:system-ui,sans-serif;padding:14px;max-width:520px;margin:auto}
+h1{font-size:1.1rem;margin:0 0 8px}.st{font-size:.85rem;color:#9aa;margin-bottom:10px}
+.g{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+button{padding:1.1rem .5rem;font-size:1.1rem;border-radius:14px;border:1px solid #333;background:#1b1e24;color:#fff;touch-action:manipulation}
+button:active{background:#2563eb}.big{grid-column:1/-1;background:#2563eb;font-size:1.6rem;padding:1.6rem}
+.bar{height:8px;background:#222;border-radius:4px;overflow:hidden;margin:8px 0 14px}.bar i{display:block;height:100%;background:#60a5fa;width:0}
+input{background:#1b1e24;border:1px solid #333;color:#fff;border-radius:8px;padding:.5rem;font-size:1rem;width:8em;text-transform:uppercase}
+</style></head><body>
+<h1>🎬 UNIÃO — controle remoto</h1>
+<div class="st" id="st">Conectando…</div>
+<div class="bar"><i id="pr"></i></div>
+<div class="g">
+ <button class="big" data-c="toggle" id="play">▶ / ⏸</button>
+ <button data-c="back">⏮ Voltar</button><button data-c="forward">⏭ Avançar</button>
+ <button data-c="slower">🐢 Mais lento</button><button data-c="faster">🐇 Mais rápido</button>
+ <button data-c="fontDown">A− Fonte</button><button data-c="fontUp">A+ Fonte</button>
+ <button data-c="restart">↺ Reiniciar</button><button data-c="mirror">🪞 Espelho</button>
+ <button data-c="theme">🌗 Tema</button><button data-c="bold"><b>B</b> Negrito</button><button data-c="mode">🎤/🔊/⏩ Modo</button><button data-c="guide">━ Linha-guia</button><button data-c="loop">🔁 Loop</button>
+ <button data-c="open">📺 Abrir</button><button data-c="close">✕ Fechar</button>
+</div>
+<div class="st" id="info"></div>
+<p>Sala: <input id="room" maxlength="16"></p>
+<script>
+const q=new URLSearchParams(location.search); let room=(q.get('room')||localStorage.getItem('tp-remote-room')||'').toUpperCase();
+const $=id=>document.getElementById(id); $('room').value=room;
+$('room').onchange=()=>{ room=$('room').value.trim().toUpperCase(); localStorage.setItem('tp-remote-room',room); connect(); };
+let ws;
+function connect(){
+  try{ws&&ws.close()}catch{}; if(!/^[A-Z0-9]{4,16}$/.test(room)){ $('st').textContent='Informe o código da sala.'; return; }
+  localStorage.setItem('tp-remote-room',room);
+  ws=new WebSocket(`${location.protocol==='https:'?'wss':'ws'}://${location.host}/ws?room=${room}&role=controller`);
+  ws.onopen=()=>$('st').textContent='Conectado — aguardando teleprompter…';
+  ws.onclose=()=>{ $('st').textContent='Desconectado. Reconectando…'; setTimeout(connect,2000); };
+  ws.onmessage=e=>{ const m=JSON.parse(e.data);
+    if(m.type==='presence') $('st').textContent=m.prompter?'✅ Teleprompter conectado':'Aguardando teleprompter…';
+    if(m.type==='state'){ const s=m.state; $('pr').style.width=(s.progress*100)+'%'; $('play').textContent=s.playing?'⏸ Pausar':'▶ Iniciar';
+      $('info').textContent=`${s.mode==='voice'?'Modo voz':s.speed+' px/s'} · fonte ${s.fontSize}px · espelho ${s.mirror?'on':'off'} · loop ${s.loop?'on':'off'}`; } };
+}
+document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{ if(ws&&ws.readyState===1){ ws.send(JSON.stringify({type:'cmd',cmd:b.dataset.c})); navigator.vibrate?.(15);} });
+connect();
+</script></body></html>

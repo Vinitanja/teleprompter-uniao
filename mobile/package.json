@@ -1,0 +1,22 @@
+{
+  "name": "teleprompter-mobile",
+  "private": true,
+  "scripts": {
+    "prep": "mkdir -p www && cp ../public/index.html ../public/remote.html ../public/icon.svg www/",
+    "add:android": "npm run prep && npx cap add android",
+    "add:ios": "npm run prep && npx cap add ios",
+    "sync": "npm run prep && npx cap sync",
+    "open:android": "npx cap open android",
+    "open:ios": "npx cap open ios",
+    "build:apk": "npm run sync && cd android && ./gradlew assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/ios": "^6.2.0",
+    "@capacitor-community/speech-recognition": "^6.0.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.0"
+  }
+}

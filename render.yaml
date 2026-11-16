@@ -1,0 +1,8 @@
+services:
+  - type: web
+    name: teleprompter-uniao
+    runtime: docker
+    plan: free
+    healthCheckPath: /healthz
+    # Sem senha (acesso aberto). Para ativar login, adicione APP_PASSWORD em Environment.
+    # E-mail por IMAP (opcional): IMAP_HOST, IMAP_USER, IMAP_PASS.
