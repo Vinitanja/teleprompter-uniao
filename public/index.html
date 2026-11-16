@@ -401,7 +401,7 @@ function connectWS(){
   const b=base(); if(!b) return;
   ws=new WebSocket(`${b.replace(/^http/i,'ws')}/ws?room=${room}&role=prompter&sync=${syncCode()}`);
   ws.onmessage=e=>{ let m; try{m=JSON.parse(e.data);}catch{return;}
-    if(m.type==='cmd') command(m.cmd,m.value);
+    if(m.type==='cmd'){ quietUntil=performance.now()+3000; command(m.cmd,m.value); }
     if(m.type==='needText') sendText(0);
     if(m.type==='push') applyPush(m);
     if(m.type==='libChanged') scheduleSync(300);
@@ -652,7 +652,7 @@ function close_(){
   try{wake?.release();}catch{} try{screen.orientation?.unlock?.();}catch{} if(document.fullscreenElement) document.exitFullscreen?.().catch(()=>{});
   sendState(true);
 }
-let barT; function showBar(){ $('bar').classList.remove('hide'); clearTimeout(barT); barT=setTimeout(()=>{ if(running)$('bar').classList.add('hide'); },3500); }
+let barT, quietUntil=0; function showBar(force){ if(!force&&performance.now()<quietUntil) return; $('bar').classList.remove('hide'); clearTimeout(barT); barT=setTimeout(()=>{ if(running)$('bar').classList.add('hide'); },3500); }
 
 function command(cmd,val){
   const step=()=>Math.max(80,vh*0.3);
@@ -700,12 +700,12 @@ $('pRestart').onclick=()=>command('restart'); $('pExit').onclick=()=>command('cl
 const localDY=(dx,dy)=>{ let d=rotated?-dx:dy; if(S.mirror&&S.mirrorDir==='v') d=-d; return d; };
 let drag=null;
 P.addEventListener('pointerdown',e=>{
-  showBar(); if(e.target.closest('#bar,#guideHandle'))return;
+  showBar(true); if(e.target.closest('#bar,#guideHandle'))return;
   drag={lx:e.clientX,ly:e.clientY,sx:e.clientX,sy:e.clientY,moved:false}; holding=true;
   try{P.setPointerCapture(e.pointerId);}catch{}
 });
 P.addEventListener('pointermove',e=>{
-  showBar(); if(!drag)return;
+  showBar(true); if(!drag)return;
   if(!drag.moved&&Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)>10) drag.moved=true;
   if(drag.moved){ jump(-localDY(e.clientX-drag.lx,e.clientY-drag.ly)); }
   drag.lx=e.clientX; drag.ly=e.clientY;
@@ -716,7 +716,7 @@ P.addEventListener('wheel',e=>{ e.preventDefault(); jump(localDY(0,e.deltaY)); }
 
 // Linha-guia arrastável: coloque onde quiser
 let gdrag=null;
-HANDLE.addEventListener('pointerdown',e=>{ e.stopPropagation(); gdrag={x:e.clientX,y:e.clientY,start:lineY}; HANDLE.classList.add('drag'); HANDLE.setPointerCapture(e.pointerId); showBar(); });
+HANDLE.addEventListener('pointerdown',e=>{ e.stopPropagation(); gdrag={x:e.clientX,y:e.clientY,start:lineY}; HANDLE.classList.add('drag'); HANDLE.setPointerCapture(e.pointerId); showBar(true); });
 HANDLE.addEventListener('pointermove',e=>{
   if(!gdrag)return; const h=parseFloat(ROT.style.height)||vh;
   const ny=Math.max(h*.08,Math.min(h*.92,gdrag.start+(rotated?-(e.clientX-gdrag.x):(e.clientY-gdrag.y))));
