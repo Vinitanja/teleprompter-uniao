@@ -474,7 +474,7 @@ $('newRoom').onclick=()=>{ room=newRoomCode(); localStorage.setItem('tp-room',ro
 /* =============== Teleprompter =============== */
 const P=$('prompter'), ROT=$('rot'), MIR=$('flip'), FADE=$('fadeLayer'), CONT=$('content'), GUIDE=$('guideLine'), HANDLE=$('guideHandle');
 let prompterOpen=false, running=false, pos=0, maxPos=0, lineY=0, W=[], spans=[], tops=[], topsDirty=true, cur=0, marked=0, targetPos=0, vel=0, lastT=0, endHold=0;
-let rotated=false, vw=0, vh=0, holding=false, fallbackMode=null, gaps=[], gapR=[], padTop=0, leadElapsed=0, spoke=false;
+let scrubHoldUntil=0, rotated=false, vw=0, vh=0, holding=false, fallbackMode=null, gaps=[], gapR=[], padTop=0, leadElapsed=0, spoke=false;
 const MODE=()=>fallbackMode||S.mode;
 
 const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^\p{L}\p{N}]/gu,'');
@@ -556,7 +556,7 @@ function tick(ts){
   if(!prompterOpen)return; requestAnimationFrame(tick);
   const dt=Math.min(0.1,(ts-lastT)/1000||0); lastT=ts;
   if(topsDirty) measure();
-  if(running&&!holding&&!(S.leadSec>0&&MODE()!=='voice'&&pos<=0.5&&(leadElapsed+=dt)<S.leadSec)){
+  if(running&&!holding&&performance.now()>=scrubHoldUntil&&!(S.leadSec>0&&MODE()!=='voice'&&pos<=0.5&&(leadElapsed+=dt)<S.leadSec)){
     const gb=inGap(pos+lineY)?Math.max(1,S.gapBoost):1;
     if(MODE()==='auto'){ pos+=S.speed*gb*dt; }
     else if(MODE()==='sound'){ const goal=(level>SOUND_THR)?S.speed:0; vel+=(goal-vel)*Math.min(1,dt*6); pos+=vel*gb*dt; }
@@ -695,6 +695,7 @@ function command(cmd,val){
     case 'fontDown': S.fontSize=Math.max(16,S.fontSize-4); layoutKeep(); break;
     case 'back': jump(-step()); break;
     case 'forward': jump(step()); break;
+    case 'scrub': if(prompterOpen){ jump(+val||0); scrubHoldUntil=performance.now()+400; } break;   // arrastar no controle: adianta/retrocede o texto
     case 'restart': pos=0; cur=0; targetPos=0; leadElapsed=0; spoke=false; markRead(); render(); break;
     case 'mirror': S.mirror=!S.mirror; layout(); break;
     case 'mirrorDir': S.mirrorDir=S.mirrorDir==='v'?'h':'v'; layout(); break;

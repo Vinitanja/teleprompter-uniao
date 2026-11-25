@@ -22,6 +22,10 @@ button{padding:.75rem .2rem;font-size:1.05rem;border-radius:12px;border:1px soli
 button:active{background:#2563eb}button.on{background:#2563eb}button.big{background:#2563eb;font-weight:700;font-size:1.2rem}
 details{font-size:.85rem;color:#9aa}input[type=text]{background:#1b1e24;border:1px solid #333;color:#fff;border-radius:8px;padding:.4rem;width:8em;text-transform:uppercase}
 .fsonly{display:none}
+#menuBtn{display:none;position:fixed;top:10px;right:10px;z-index:65;width:46px;height:46px;border-radius:50%;padding:0;font-size:1.3rem;background:#000a;opacity:.75}
+body.fs #menuBtn{display:block}
+#lever{position:absolute;right:0;top:0;bottom:0;width:56px;z-index:4;pointer-events:none;background:linear-gradient(90deg,#0000,#2563eb30);display:flex;flex-direction:column;justify-content:space-between;align-items:center;padding:8px 0;color:#9bbcff;font-size:.8rem;line-height:1}
+#lever b{writing-mode:vertical-rl;letter-spacing:.1em;font-weight:600}
 .fontrow{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:8px;align-items:end}
 .fg{display:flex;flex-direction:column;gap:3px}.fg small{font-size:.7rem;color:#9aa;white-space:nowrap}.fg span{display:flex;gap:6px}.fg button{flex:1;padding:.55rem .3rem}
 body.fs .fontrow small{color:#cbd}
@@ -39,7 +43,8 @@ body.fs #txt span.now{background:none}
 </style></head><body>
 <div class="top"><span id="st">Conectando…</span></div>
 <div class="bar"><i id="pr"></i></div>
-<div id="view"><div id="empty">Aguardando o texto do app…<br><small>Abra o app e conecte-se a este código.</small></div><div id="txt"></div><div id="vguide"></div><div id="hud"></div><div id="tip">↕ arraste: velocidade · toque: ▶/⏸</div></div>
+<div id="view"><div id="empty">Aguardando o texto do app…<br><small>Abra o app e conecte-se a este código.</small></div><div id="txt"></div><div id="vguide"></div><div id="lever"><span>▲</span><b>VELOCIDADE</b><span>▼</span></div><div id="hud"></div><div id="tip">↕ arraste: rolar o texto · borda ▶ velocidade · toque: ▶/⏸</div></div>
+<button id="menuBtn" title="Mostrar controles">☰</button>
 <div id="ctl">
   <div class="fontrow">
     <div class="fg"><small>Texto deste controle</small><span><button data-v="-1" title="Diminuir só neste controle">🔍−</button><button data-v="1" title="Aumentar só neste controle">🔍+</button></span></div>
@@ -48,6 +53,7 @@ body.fs #txt span.now{background:none}
   </div>
   <div class="sp"><button data-c="slower">−</button><input type="range" id="rng" min="10" max="600" step="5" value="60"><button data-c="faster">+</button><b id="spd">60</b></div>
   <div class="g g6"><button data-c="back">⏮</button><button class="big" data-c="toggle" id="play">▶ Iniciar</button><button data-c="forward">⏭</button></div>
+  <div class="g" style="grid-template-columns:1fr 1fr"><button data-c="open">📺 Abrir no app</button><button data-c="close">📝 Voltar ao texto</button></div>
   <div class="g g5"><button data-c="mode" id="mode">🎤</button><button data-c="caps" id="caps">AA</button><button data-c="bold" id="bold"><b>B</b></button><button data-c="mirror" id="mirror">🪞</button><button data-c="guide" id="guide">━</button><button data-c="restart">↺</button></div>
 </div>
 <details><summary>Código do app / mais</summary><p>Código: <input id="room" maxlength="16"> <button data-c="open" style="padding:.4rem .7rem">📺 Abrir</button> <button data-c="close" style="padding:.4rem .7rem">✕ Fechar</button> <button data-c="theme" style="padding:.4rem .7rem">🌗</button> <button data-c="loop" style="padding:.4rem .7rem">🔁</button> <button data-c="mirrorDir" style="padding:.4rem .7rem">↔/↕</button></p></details>
@@ -127,7 +133,8 @@ document.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{ send(b.dataset.
 $('rng').oninput=e=>{ speed=+e.target.value; $('spd').textContent=speed; sendSpeed(true); showCtl(); };
 /* ---- tela cheia ---- */
 let ctlT, wake;
-function showCtl(){ const c=$('ctl'); c.classList.remove('hide'); clearTimeout(ctlT); if(fsMode) ctlT=setTimeout(()=>{ if(playing) c.classList.add('hide'); },3500); }
+function showCtl(ms=3500){ const c=$('ctl'); c.classList.remove('hide'); clearTimeout(ctlT); if(fsMode) ctlT=setTimeout(()=>{ if(playing) c.classList.add('hide'); },ms); }
+$('menuBtn').onclick=()=>showCtl(9000);
 async function setFs(on){
   fsMode=on; document.body.classList.toggle('fs',on);
   try{
@@ -144,12 +151,31 @@ window.addEventListener('resize',()=>applyLook()); window.addEventListener('orie
 let lastSp=0, hudT;
 function sendSpeed(force){ const n=performance.now(); if(force||n-lastSp>70){ lastSp=n; send('speed',speed); } }
 function hud(){ const h=$('hud'); h.textContent='⏩ '+speed+' px/s'; h.style.display='block'; clearTimeout(hudT); hudT=setTimeout(()=>h.style.display='none',900); }
-let g=null;
-view.addEventListener('pointerdown',e=>{ g={y:e.clientY,s:speed,moved:false}; try{view.setPointerCapture(e.pointerId);}catch{} showCtl(); });
-view.addEventListener('pointermove',e=>{ if(!g)return; const dy=g.y-e.clientY;
-  if(!g.moved&&Math.abs(dy)>10){ g.moved=true; dragging=true; }
-  if(g.moved){ speed=Math.max(10,Math.min(600,Math.round((g.s+dy*0.8)/5)*5)); $('rng').value=speed; $('spd').textContent=speed; hud(); sendSpeed(); } });
-const end=e=>{ if(!g)return; const tap=!g.moved&&e.type==='pointerup'; if(g.moved) sendSpeed(true); g=null; dragging=false; if(tap){ send('toggle'); navigator.vibrate?.(12); } };
+let g=null, acc=0, lastSc=0;
+const edgeW=()=>Math.max(56,view.clientWidth*0.14);
+// pixels do controle -> pixels da tela principal (a fonte pode ter tamanhos diferentes)
+const ratio=()=>(look&&look.fontSize&&fsPx)?look.fontSize/fsPx:1;
+function flushScrub(force){ const n=performance.now(); if(acc&&(force||n-lastSc>60)){ lastSc=n; send('scrub',Math.round(acc)); acc=0; } }
+view.addEventListener('pointerdown',e=>{
+  const rc=view.getBoundingClientRect(), edge=e.clientX>rc.right-edgeW();
+  g={x:e.clientX,y:e.clientY,ly:e.clientY,s:speed,moved:false,edge,wasHidden:fsMode&&$('ctl').classList.contains('hide')};
+  try{view.setPointerCapture(e.pointerId);}catch{} showCtl();
+});
+view.addEventListener('pointermove',e=>{ if(!g)return;
+  if(!g.moved&&Math.hypot(e.clientX-g.x,e.clientY-g.y)>10){ g.moved=true; dragging=true; }
+  if(!g.moved)return;
+  if(g.edge){ // borda direita = alavanca de velocidade: arrastar para cima aumenta
+    speed=Math.max(10,Math.min(600,Math.round((g.s+(g.y-e.clientY)*0.8)/5)*5)); $('rng').value=speed; $('spd').textContent=speed; hud(); sendSpeed();
+  } else {    // resto da tela = rolar o texto no app: arrastar para cima adianta, para baixo retrocede
+    acc+=-(e.clientY-g.ly)*ratio(); g.ly=e.clientY; flushScrub();
+  }
+});
+const end=e=>{ if(!g)return; const tap=!g.moved&&e.type==='pointerup';
+  if(g.moved){ if(g.edge) sendSpeed(true); else flushScrub(true); }
+  const wasHidden=g.wasHidden; g=null; dragging=false;
+  // em tela cheia, o primeiro toque só traz os controles de volta; com eles visíveis o toque dá play/pause
+  if(tap&&!wasHidden){ send('toggle'); navigator.vibrate?.(12); }
+};
 view.addEventListener('pointerup',end); view.addEventListener('pointercancel',end);
 connect();
 </script></body></html>
