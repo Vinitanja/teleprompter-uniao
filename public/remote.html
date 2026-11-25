@@ -22,6 +22,9 @@ button{padding:.75rem .2rem;font-size:1.05rem;border-radius:12px;border:1px soli
 button:active{background:#2563eb}button.on{background:#2563eb}button.big{background:#2563eb;font-weight:700;font-size:1.2rem}
 details{font-size:.85rem;color:#9aa}input[type=text]{background:#1b1e24;border:1px solid #333;color:#fff;border-radius:8px;padding:.4rem;width:8em;text-transform:uppercase}
 .fsonly{display:none}
+.fontrow{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-bottom:8px;align-items:end}
+.fg{display:flex;flex-direction:column;gap:3px}.fg small{font-size:.7rem;color:#9aa;white-space:nowrap}.fg span{display:flex;gap:6px}.fg button{flex:1;padding:.55rem .3rem}
+body.fs .fontrow small{color:#cbd}
 /* ---- tela cheia: igual à tela principal, controles em camada que some sozinha ---- */
 body.fs{padding:0}
 body.fs .top,body.fs details,body.fs #tip{display:none}
@@ -30,33 +33,38 @@ body.fs #view{position:fixed;inset:0;z-index:50;margin:0;border:0;border-radius:
 body.fs #ctl{position:fixed;left:0;right:0;bottom:0;z-index:60;padding:10px 10px max(10px,env(safe-area-inset-bottom));background:#000d;color:#fff;transition:opacity .3s}
 body.fs #ctl.hide{opacity:0;pointer-events:none}
 body.fs .fsonly{display:block}
+body.fs #goFs{display:none}
 body.fs #txt span.now{background:none}
-#exitFs{width:100%;margin-top:0}
+
 </style></head><body>
-<div class="top"><span id="st">Conectando…</span><span><button data-c="fontDown">A−</button> <b id="fs" style="color:#eee">–</b> <button data-c="fontUp">A+</button> <button id="goFs" title="Tela cheia">⛶</button></span></div>
+<div class="top"><span id="st">Conectando…</span></div>
 <div class="bar"><i id="pr"></i></div>
 <div id="view"><div id="empty">Aguardando o texto do app…<br><small>Abra o app e conecte-se a este código.</small></div><div id="txt"></div><div id="vguide"></div><div id="hud"></div><div id="tip">↕ arraste: velocidade · toque: ▶/⏸</div></div>
 <div id="ctl">
+  <div class="fontrow">
+    <div class="fg"><small>Texto deste controle</small><span><button data-v="-1" title="Diminuir só neste controle">🔍−</button><button data-v="1" title="Aumentar só neste controle">🔍+</button></span></div>
+    <div class="fg"><small>Fonte do app <b id="fs">–</b></small><span><button data-c="fontDown" title="Diminuir no app principal">A−</button><button data-c="fontUp" title="Aumentar no app principal">A+</button></span></div>
+    <div class="fg"><small>&nbsp;</small><span><button id="goFs" title="Tela cheia">⛶</button><button id="exitFs" class="fsonly" title="Sair da tela cheia">✕</button></span></div>
+  </div>
   <div class="sp"><button data-c="slower">−</button><input type="range" id="rng" min="10" max="600" step="5" value="60"><button data-c="faster">+</button><b id="spd">60</b></div>
   <div class="g g6"><button data-c="back">⏮</button><button class="big" data-c="toggle" id="play">▶ Iniciar</button><button data-c="forward">⏭</button></div>
   <div class="g g5"><button data-c="mode" id="mode">🎤</button><button data-c="caps" id="caps">AA</button><button data-c="bold" id="bold"><b>B</b></button><button data-c="mirror" id="mirror">🪞</button><button data-c="guide" id="guide">━</button><button data-c="restart">↺</button></div>
-  <div class="fsonly"><div class="g" style="grid-template-columns:1fr 1fr 1fr"><button data-c="fontDown">A−</button><button data-c="fontUp">A+</button><button id="exitFs">✕ Sair</button></div></div>
 </div>
-<details><summary>Código do app / mais</summary><p>Tamanho do texto <u>neste controle</u> (visão pequena): <button data-v="-2" style="padding:.4rem .7rem">🔍−</button> <button data-v="2" style="padding:.4rem .7rem">🔍+</button></p><p>Código: <input id="room" maxlength="16"> <button data-c="open" style="padding:.4rem .7rem">📺 Abrir</button> <button data-c="close" style="padding:.4rem .7rem">✕ Fechar</button> <button data-c="theme" style="padding:.4rem .7rem">🌗</button> <button data-c="loop" style="padding:.4rem .7rem">🔁</button> <button data-c="mirrorDir" style="padding:.4rem .7rem">↔/↕</button></p></details>
+<details><summary>Código do app / mais</summary><p>Código: <input id="room" maxlength="16"> <button data-c="open" style="padding:.4rem .7rem">📺 Abrir</button> <button data-c="close" style="padding:.4rem .7rem">✕ Fechar</button> <button data-c="theme" style="padding:.4rem .7rem">🌗</button> <button data-c="loop" style="padding:.4rem .7rem">🔁</button> <button data-c="mirrorDir" style="padding:.4rem .7rem">↔/↕</button></p></details>
 <script>
 const $=id=>document.getElementById(id);
 const q=new URLSearchParams(location.search); let room=(q.get('room')||localStorage.getItem('tp-remote-room')||'').toUpperCase(); $('room').value=room;
 $('room').onchange=()=>{ room=$('room').value.trim().toUpperCase(); localStorage.setItem('tp-remote-room',room); connect(); };
-let ws, speed=60, playing=false, lastText=null, spans=[], marked=0, curW=-1, vfs=+localStorage.getItem('tp-vfs')||26, dragging=false, fsMode=false, look=null, lookKey='', fsPx=26;
+let ws, speed=60, playing=false, lastText=null, spans=[], marked=0, curW=-1, vfs=+localStorage.getItem('tp-vfs')||26, dragging=false, fsMode=false, look=null, lookKey='', fsPx=26, zoom=+localStorage.getItem('tp-zoom')||1;
 const send=(cmd,value)=>{ if(ws&&ws.readyState===1) ws.send(JSON.stringify({type:'cmd',cmd,value})); };
 const view=$('view'), txt=$('txt');
 /* ---- aparência: replica a tela principal (fonte, largura, cor, tema, linha-guia, esmaecimento) ---- */
 const lineY=()=>view.clientHeight*((look&&look.gy)||40)/100;
 function applyLook(force){
-  const l=look||{}; const key=JSON.stringify([l,fsMode,view.clientWidth,view.clientHeight,vfs]); if(!force&&key===lookKey)return; lookKey=key;
+  const l=look||{}; const key=JSON.stringify([l,fsMode,view.clientWidth,view.clientHeight,vfs,zoom]); if(!force&&key===lookKey)return; lookKey=key;
   const dark=(l.th||'dark')==='dark', h=view.clientHeight, L=lineY();
   // em tela cheia o tamanho é proporcional ao da tela principal, para as quebras de linha ficarem iguais
-  fsPx=(fsMode&&l.pw&&l.fontSize)?l.fontSize*view.clientWidth/l.pw:vfs;
+  fsPx=(fsMode&&l.pw&&l.fontSize)?l.fontSize*view.clientWidth/l.pw*zoom:vfs;
   view.style.background=dark?'#000':'#fff';
   Object.assign(txt.style,{fontSize:fsPx+'px',fontFamily:l.ff||'inherit',fontWeight:l.bold?'700':'400',fontStyle:l.italic?'italic':'normal',textTransform:l.caps?'uppercase':'none',
     color:(l.col&&l.col!=='auto')?l.col:(dark?'#f4f4f4':'#111'),width:(l.width||90)+'%',textAlign:l.center?'center':'left',paddingTop:L+'px',paddingBottom:(h-L)+'px'});
@@ -86,7 +94,11 @@ function highlight(w,force){
   marked=w; curW=w; spans[w].classList.add('now');
   txt.style.transform=`translateY(${-(spans[w].offsetTop-lineY())}px)`;
 }
-document.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>{ vfs=Math.max(14,Math.min(80,vfs+(+b.dataset.v))); localStorage.setItem('tp-vfs',vfs); applyLook(true); });
+// 🔍: muda só o texto deste controle (não envia nada ao app)
+document.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>{ const d=+b.dataset.v;
+  if(fsMode){ zoom=Math.max(.4,Math.min(3,zoom*(d>0?1.1:1/1.1))); localStorage.setItem('tp-zoom',zoom.toFixed(3)); }
+  else { vfs=Math.max(14,Math.min(80,vfs+d*2)); localStorage.setItem('tp-vfs',vfs); }
+  applyLook(true); showCtl(); });
 /* ---- estado vindo do app ---- */
 function applyState(s){
   if(!dragging){ speed=s.speed; $('rng').value=speed; $('spd').textContent=speed; }
