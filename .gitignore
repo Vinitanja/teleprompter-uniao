@@ -1,6 +1,7 @@
 node_modules/
 data/
 *.apk
+!public/app/*.apk
 mobile/node_modules/
 mobile/android/.gradle/
 mobile/android/build/

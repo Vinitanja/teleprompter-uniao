@@ -288,7 +288,7 @@ async function checkUpdate(manual){
   }catch{ if(manual) toast(t('syncFail')); }
 }
 window.__tpUpdate=pct=>{ if(pct<0) toast(t('updFail'),5000); else toast('⬇ '+t('update')+' '+pct+'%',1200); };
-$('btnUpdate').onclick=()=>{ const n=nat(); if(n&&updInfo) n.installUpdate(updInfo.url); };
+$('btnUpdate').onclick=()=>{ const n=nat(); if(n&&updInfo) n.installUpdate(/^https?:/i.test(updInfo.url)?updInfo.url:base()+updInfo.url); };
 $('chkUpd').onclick=()=>checkUpdate(true);
 
 /* =============== Sincronização (site + app, por código) =============== */

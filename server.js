@@ -139,7 +139,7 @@ if (process.env.IMAP_HOST) {
 }
 
 // ---------- HTTP ----------
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png' };
+const MIME = { '.apk': 'application/vnd.android.package-archive', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png' };
 
 function readBody(req) {
   return new Promise((resolve, reject) => {
@@ -247,7 +247,11 @@ const server = http.createServer(async (req, res) => {
     if (p === '/enviar') p = '/enviar.html';
     const file = path.normalize(path.join(PUBLIC, p));
     if (!file.startsWith(PUBLIC) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) { res.writeHead(404); return res.end('404'); }
-    res.writeHead(200, { 'Content-Type': MIME[path.extname(file)] || 'application/octet-stream' });
+    const ext = path.extname(file);
+    const hdr = { 'Content-Type': MIME[ext] || 'application/octet-stream' };
+    if (ext === '.apk') { hdr['Content-Length'] = fs.statSync(file).size; hdr['Content-Disposition'] = 'attachment; filename="TELEPROMPTER-UNIAO.apk"'; }
+    if (p === '/app/version.json') hdr['Cache-Control'] = 'no-store';
+    res.writeHead(200, hdr);
     fs.createReadStream(file).pipe(res);
   } catch (e) { json(res, 500, { error: e.message }); }
 });
